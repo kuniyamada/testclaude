@@ -66,6 +66,44 @@ async function loadUsers() {
 
 // イベントリスナー設定
 function setupEventListeners() {
+  // ヘルプボタン
+  const helpBtn = document.getElementById('helpBtn');
+  const helpModal = document.getElementById('helpModal');
+  const closeHelpBtn = document.getElementById('closeHelpBtn');
+  const closeHelpBtn2 = document.getElementById('closeHelpBtn2');
+  
+  if (helpModal) {
+    // ヘッダーのヘルプボタン
+    if (helpBtn) {
+      helpBtn.addEventListener('click', () => {
+        helpModal.classList.remove('hidden');
+      });
+    }
+    
+    // ログイン画面のヘルプボタン
+    const helpBtnLogin = document.getElementById('helpBtnLogin');
+    if (helpBtnLogin) {
+      helpBtnLogin.addEventListener('click', () => {
+        helpModal.classList.remove('hidden');
+      });
+    }
+    
+    closeHelpBtn?.addEventListener('click', () => {
+      helpModal.classList.add('hidden');
+    });
+    
+    closeHelpBtn2?.addEventListener('click', () => {
+      helpModal.classList.add('hidden');
+    });
+    
+    // 背景クリックで閉じる
+    helpModal.addEventListener('click', (e) => {
+      if (e.target === helpModal) {
+        helpModal.classList.add('hidden');
+      }
+    });
+  }
+  
   // 部署選択
   document.getElementById('departmentSelect').addEventListener('change', (e) => {
     const deptId = e.target.value;
