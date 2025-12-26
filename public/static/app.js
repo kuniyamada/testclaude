@@ -99,9 +99,17 @@ function setupEventListeners() {
   // 感謝送信ボタン
   document.getElementById('sendThanksBtn').addEventListener('click', sendThanks);
   
-  // タブ切り替え
+  // タブ切り替え（デスクトップ）
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', (e) => switchTab(e.target.dataset.tab));
+  });
+  
+  // ボトムナビ（モバイル）
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const tab = e.currentTarget.dataset.tab;
+      if (tab) switchTab(tab);
+    });
   });
   
   // 月選択
@@ -149,7 +157,9 @@ async function showMainScreen() {
   const dept = departments.find(d => d.id == currentUser.department_id);
   document.getElementById('currentUserName').textContent = `${currentUser.name}（${dept?.name || ''}）`;
   document.getElementById('seedCount').textContent = currentUser.daily_seeds;
-  document.getElementById('totalPoints').textContent = currentUser.total_points;
+  const totalPoints = Math.round((currentUser.total_received_points || 0) + (currentUser.total_sent_points || 0));
+  document.getElementById('totalPoints').textContent = totalPoints;
+  currentUser.total_points = totalPoints; // 互換性のため
   
   // マイツリー表示
   updateMyTree();
@@ -438,7 +448,9 @@ async function sendThanks() {
       currentUser = userResponse.data.user;
       
       document.getElementById('seedCount').textContent = currentUser.daily_seeds;
-      document.getElementById('totalPoints').textContent = currentUser.total_points;
+      const totalPoints = Math.round((currentUser.total_received_points || 0) + (currentUser.total_sent_points || 0));
+      document.getElementById('totalPoints').textContent = totalPoints;
+      currentUser.total_points = totalPoints;
       updateMyTree();
       
       // フォームリセット
@@ -469,8 +481,13 @@ async function sendThanks() {
 function switchTab(tab) {
   currentView = tab;
   
-  // タブボタンの状態更新
+  // タブボタンの状態更新（デスクトップ）
   document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  
+  // ナビアイテムの状態更新（モバイル）
+  document.querySelectorAll('.nav-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
   

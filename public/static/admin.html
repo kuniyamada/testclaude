@@ -2,176 +2,187 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#22c55e">
   <title>管理画面 - Thanks Garden</title>
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
   <style>
-    .btn-primary { @apply bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition; }
-    .btn-danger { @apply bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition; }
-    .btn-secondary { @apply bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition; }
-    .card { @apply bg-white rounded-xl shadow-lg p-6; }
-    .input { @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent; }
-    .table-row { @apply border-b hover:bg-gray-50 transition; }
-    .tab-btn { @apply px-4 py-2 rounded-t-lg transition cursor-pointer; }
-    .tab-btn.active { @apply bg-white text-green-600 font-bold border-b-2 border-green-500; }
-    .tab-btn:not(.active) { @apply bg-gray-100 text-gray-600 hover:bg-gray-200; }
-    .modal { @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50; }
-    .modal-content { @apply bg-white rounded-xl p-6 max-w-md w-full mx-4; }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { overscroll-behavior: none; }
+    
+    .btn-primary { background: linear-gradient(145deg, #4ade80, #22c55e); color: white; padding: 10px 16px; border-radius: 10px; font-weight: 600; }
+    .btn-danger { background: linear-gradient(145deg, #f87171, #ef4444); color: white; padding: 10px 16px; border-radius: 10px; font-weight: 600; }
+    .btn-secondary { background: #6b7280; color: white; padding: 10px 16px; border-radius: 10px; font-weight: 600; }
+    .card { background: white; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 16px; }
+    .input { width: 100%; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 16px; }
+    .input:focus { outline: none; border-color: #4ade80; }
+    
+    /* ボトムナビ */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+      z-index: 50;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 10px;
+      color: #9ca3af;
+      padding: 4px;
+    }
+    .nav-item.active { color: #22c55e; }
+    .nav-item i { font-size: 18px; margin-bottom: 2px; }
+    
+    .content-area { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+    
+    /* モーダル */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 400px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    /* テーブル（モバイル対応） */
+    .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 100%; }
+    th, td { padding: 10px 8px; text-align: left; white-space: nowrap; }
+    th { background: #f3f4f6; font-weight: 600; font-size: 12px; }
+    td { border-bottom: 1px solid #e5e7eb; font-size: 13px; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-emerald-100 min-h-screen">
   <!-- ログイン画面 -->
   <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
-    <div class="card max-w-md w-full text-center">
-      <div class="text-6xl mb-4">🔐</div>
-      <h1 class="text-2xl font-bold text-gray-800 mb-2">管理者ログイン</h1>
-      <p class="text-gray-600 mb-6">Thanks Garden 管理システム</p>
+    <div class="card max-w-sm w-full text-center">
+      <div class="text-5xl mb-3">🔐</div>
+      <h1 class="text-xl font-bold text-gray-800 mb-1">管理者ログイン</h1>
+      <p class="text-gray-600 text-sm mb-5">Thanks Garden 管理システム</p>
       
-      <div class="mb-4">
-        <select id="adminUserSelect" class="input">
-          <option value="">ユーザーを選択...</option>
-        </select>
-      </div>
+      <select id="adminUserSelect" class="input mb-4">
+        <option value="">ユーザーを選択...</option>
+      </select>
       
-      <button onclick="adminLogin()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition">
+      <button onclick="adminLogin()" class="btn-primary w-full">
         <i class="fas fa-sign-in-alt mr-2"></i>ログイン
       </button>
       
-      <p class="text-sm text-gray-500 mt-4">
-        ※ 管理者権限を持つユーザーのみログイン可能です
-      </p>
+      <p class="text-xs text-gray-500 mt-4">※ 管理者権限を持つユーザーのみ</p>
     </div>
   </div>
   
   <!-- 管理画面 -->
   <div id="adminPanel" class="hidden">
     <!-- ヘッダー -->
-    <header class="bg-white shadow-md">
-      <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-          <span class="text-3xl">🌳</span>
+    <header class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-3 sticky top-0 z-40 shadow-lg">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🌳</span>
           <div>
-            <h1 class="text-xl font-bold text-gray-800">Thanks Garden 管理</h1>
-            <p class="text-sm text-gray-500">Admin Panel</p>
+            <h1 class="text-base font-bold">管理画面</h1>
+            <p class="text-xs text-green-100" id="adminName">管理者</p>
           </div>
         </div>
-        <div class="flex items-center gap-4">
-          <span class="text-gray-600">
-            <i class="fas fa-user-shield mr-1"></i>
-            <span id="adminName">管理者</span>
-          </span>
-          <button onclick="logout()" class="btn-secondary text-sm">
-            <i class="fas fa-sign-out-alt mr-1"></i>ログアウト
-          </button>
-        </div>
+        <button onclick="logout()" class="bg-white/20 rounded-full p-2">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
       </div>
     </header>
     
-    <!-- タブナビゲーション -->
-    <div class="max-w-7xl mx-auto px-4 mt-6">
-      <div class="flex gap-1 border-b border-gray-200">
-        <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
-          <i class="fas fa-chart-line mr-1"></i>ダッシュボード
-        </button>
-        <button class="tab-btn" data-tab="users" onclick="switchTab('users')">
-          <i class="fas fa-users mr-1"></i>ユーザー管理
-        </button>
-        <button class="tab-btn" data-tab="departments" onclick="switchTab('departments')">
-          <i class="fas fa-building mr-1"></i>部署管理
-        </button>
-        <button class="tab-btn" data-tab="thanks" onclick="switchTab('thanks')">
-          <i class="fas fa-heart mr-1"></i>感謝データ
-        </button>
-        <button class="tab-btn" data-tab="logs" onclick="switchTab('logs')">
-          <i class="fas fa-history mr-1"></i>操作ログ
-        </button>
-      </div>
-    </div>
-    
     <!-- コンテンツ -->
-    <div class="max-w-7xl mx-auto px-4 py-6">
+    <main class="p-3 content-area">
       <!-- ダッシュボード -->
       <div id="dashboardTab" class="tab-content">
-        <div class="grid md:grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-2 gap-3 mb-4">
           <div class="card text-center">
-            <div class="text-3xl mb-2">👥</div>
-            <div class="text-2xl font-bold text-blue-600" id="statUsers">-</div>
-            <div class="text-gray-500">ユーザー数</div>
+            <div class="text-2xl mb-1">👥</div>
+            <div class="text-xl font-bold text-blue-600" id="statUsers">-</div>
+            <div class="text-xs text-gray-500">ユーザー</div>
           </div>
           <div class="card text-center">
-            <div class="text-3xl mb-2">🏢</div>
-            <div class="text-2xl font-bold text-green-600" id="statDepts">-</div>
-            <div class="text-gray-500">部署数</div>
+            <div class="text-2xl mb-1">🏢</div>
+            <div class="text-xl font-bold text-green-600" id="statDepts">-</div>
+            <div class="text-xs text-gray-500">部署</div>
           </div>
           <div class="card text-center">
-            <div class="text-3xl mb-2">💝</div>
-            <div class="text-2xl font-bold text-pink-600" id="statThanks">-</div>
-            <div class="text-gray-500">総感謝数</div>
+            <div class="text-2xl mb-1">💝</div>
+            <div class="text-xl font-bold text-pink-600" id="statThanks">-</div>
+            <div class="text-xs text-gray-500">感謝数</div>
           </div>
           <div class="card text-center">
-            <div class="text-3xl mb-2">⭐</div>
-            <div class="text-2xl font-bold text-yellow-600" id="statPoints">-</div>
-            <div class="text-gray-500">総ポイント</div>
+            <div class="text-2xl mb-1">⭐</div>
+            <div class="text-xl font-bold text-yellow-600" id="statPoints">-</div>
+            <div class="text-xs text-gray-500">総ポイント</div>
           </div>
         </div>
         
-        <div class="grid md:grid-cols-2 gap-6">
-          <div class="card">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">
-              <i class="fas fa-bolt text-yellow-500 mr-2"></i>クイックアクション
-            </h3>
-            <div class="space-y-3">
-              <button onclick="resetAllSeeds()" class="w-full btn-primary text-left">
-                <i class="fas fa-seedling mr-2"></i>全ユーザーのシードをリセット
-              </button>
-              <button onclick="confirmResetPoints()" class="w-full btn-danger text-left">
-                <i class="fas fa-redo mr-2"></i>全ユーザーのポイントをリセット
-              </button>
-            </div>
+        <div class="card mb-4">
+          <h3 class="font-bold text-gray-800 mb-3">
+            <i class="fas fa-bolt text-yellow-500 mr-2"></i>クイックアクション
+          </h3>
+          <div class="space-y-2">
+            <button onclick="resetAllSeeds()" class="btn-primary w-full text-sm text-left">
+              <i class="fas fa-seedling mr-2"></i>全シードリセット
+            </button>
+            <button onclick="confirmResetPoints()" class="btn-danger w-full text-sm text-left">
+              <i class="fas fa-redo mr-2"></i>全ポイントリセット
+            </button>
           </div>
-          
-          <div class="card">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">
-              <i class="fas fa-clock text-blue-500 mr-2"></i>最近の感謝
-            </h3>
-            <div id="recentThanks" class="space-y-2 max-h-64 overflow-y-auto">
-              <!-- 動的に追加 -->
-            </div>
-          </div>
+        </div>
+        
+        <div class="card">
+          <h3 class="font-bold text-gray-800 mb-3">
+            <i class="fas fa-clock text-blue-500 mr-2"></i>最近の感謝
+          </h3>
+          <div id="recentThanks" class="space-y-2 max-h-48 overflow-y-auto text-sm"></div>
         </div>
       </div>
       
       <!-- ユーザー管理 -->
       <div id="usersTab" class="tab-content hidden">
         <div class="card">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-800">
-              <i class="fas fa-users text-blue-500 mr-2"></i>ユーザー一覧
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-gray-800">
+              <i class="fas fa-users text-blue-500 mr-2"></i>ユーザー
             </h3>
-            <button onclick="showAddUserModal()" class="btn-primary">
-              <i class="fas fa-plus mr-1"></i>ユーザー追加
+            <button onclick="showAddUserModal()" class="btn-primary text-sm py-2 px-3">
+              <i class="fas fa-plus"></i>
             </button>
           </div>
-          
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-gray-100">
+          <div class="table-container">
+            <table>
+              <thead>
                 <tr>
-                  <th class="px-4 py-3 text-left">ID</th>
-                  <th class="px-4 py-3 text-left">名前</th>
-                  <th class="px-4 py-3 text-left">部署</th>
-                  <th class="px-4 py-3 text-right">受信pt</th>
-                  <th class="px-4 py-3 text-right">送信pt</th>
-                  <th class="px-4 py-3 text-right">シード</th>
-                  <th class="px-4 py-3 text-center">操作</th>
+                  <th>名前</th>
+                  <th>部署</th>
+                  <th>受信pt</th>
+                  <th>操作</th>
                 </tr>
               </thead>
-              <tbody id="usersTable">
-                <!-- 動的に追加 -->
-              </tbody>
+              <tbody id="usersTable"></tbody>
             </table>
           </div>
         </div>
@@ -180,29 +191,25 @@
       <!-- 部署管理 -->
       <div id="departmentsTab" class="tab-content hidden">
         <div class="card">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-800">
-              <i class="fas fa-building text-green-500 mr-2"></i>部署一覧
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-gray-800">
+              <i class="fas fa-building text-green-500 mr-2"></i>部署
             </h3>
-            <button onclick="showAddDeptModal()" class="btn-primary">
-              <i class="fas fa-plus mr-1"></i>部署追加
+            <button onclick="showAddDeptModal()" class="btn-primary text-sm py-2 px-3">
+              <i class="fas fa-plus"></i>
             </button>
           </div>
-          
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-gray-100">
+          <div class="table-container">
+            <table>
+              <thead>
                 <tr>
-                  <th class="px-4 py-3 text-left">ID</th>
-                  <th class="px-4 py-3 text-left">部署名</th>
-                  <th class="px-4 py-3 text-left">カラー</th>
-                  <th class="px-4 py-3 text-right">メンバー数</th>
-                  <th class="px-4 py-3 text-center">操作</th>
+                  <th>部署名</th>
+                  <th>カラー</th>
+                  <th>人数</th>
+                  <th>操作</th>
                 </tr>
               </thead>
-              <tbody id="departmentsTable">
-                <!-- 動的に追加 -->
-              </tbody>
+              <tbody id="departmentsTable"></tbody>
             </table>
           </div>
         </div>
@@ -211,29 +218,20 @@
       <!-- 感謝データ -->
       <div id="thanksTab" class="tab-content hidden">
         <div class="card">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-800">
-              <i class="fas fa-heart text-pink-500 mr-2"></i>感謝データ一覧
-            </h3>
-            <span class="text-gray-500">直近100件</span>
-          </div>
-          
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-gray-100">
+          <h3 class="font-bold text-gray-800 mb-3">
+            <i class="fas fa-heart text-pink-500 mr-2"></i>感謝データ
+          </h3>
+          <div class="table-container">
+            <table>
+              <thead>
                 <tr>
-                  <th class="px-3 py-2 text-left">ID</th>
-                  <th class="px-3 py-2 text-left">送信者</th>
-                  <th class="px-3 py-2 text-left">受信者</th>
-                  <th class="px-3 py-2 text-left">メッセージ</th>
-                  <th class="px-3 py-2 text-right">ポイント</th>
-                  <th class="px-3 py-2 text-left">日時</th>
-                  <th class="px-3 py-2 text-center">操作</th>
+                  <th>送信者</th>
+                  <th>受信者</th>
+                  <th>pt</th>
+                  <th>操作</th>
                 </tr>
               </thead>
-              <tbody id="thanksTable">
-                <!-- 動的に追加 -->
-              </tbody>
+              <tbody id="thanksTable"></tbody>
             </table>
           </div>
         </div>
@@ -242,67 +240,86 @@
       <!-- 操作ログ -->
       <div id="logsTab" class="tab-content hidden">
         <div class="card">
-          <h3 class="text-lg font-bold text-gray-800 mb-4">
+          <h3 class="font-bold text-gray-800 mb-3">
             <i class="fas fa-history text-purple-500 mr-2"></i>操作ログ
           </h3>
-          
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-gray-100">
+          <div class="table-container">
+            <table>
+              <thead>
                 <tr>
-                  <th class="px-3 py-2 text-left">日時</th>
-                  <th class="px-3 py-2 text-left">管理者</th>
-                  <th class="px-3 py-2 text-left">操作</th>
-                  <th class="px-3 py-2 text-left">対象</th>
-                  <th class="px-3 py-2 text-left">詳細</th>
+                  <th>日時</th>
+                  <th>管理者</th>
+                  <th>操作</th>
                 </tr>
               </thead>
-              <tbody id="logsTable">
-                <!-- 動的に追加 -->
-              </tbody>
+              <tbody id="logsTable"></tbody>
             </table>
           </div>
         </div>
       </div>
-    </div>
+    </main>
+    
+    <!-- ボトムナビゲーション -->
+    <nav class="bottom-nav">
+      <div class="flex justify-around">
+        <button class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
+          <i class="fas fa-chart-line"></i>
+          <span>ダッシュ</span>
+        </button>
+        <button class="nav-item" data-tab="users" onclick="switchTab('users')">
+          <i class="fas fa-users"></i>
+          <span>ユーザー</span>
+        </button>
+        <button class="nav-item" data-tab="departments" onclick="switchTab('departments')">
+          <i class="fas fa-building"></i>
+          <span>部署</span>
+        </button>
+        <button class="nav-item" data-tab="thanks" onclick="switchTab('thanks')">
+          <i class="fas fa-heart"></i>
+          <span>感謝</span>
+        </button>
+        <button class="nav-item" data-tab="logs" onclick="switchTab('logs')">
+          <i class="fas fa-history"></i>
+          <span>ログ</span>
+        </button>
+      </div>
+    </nav>
   </div>
   
-  <!-- ユーザー追加/編集モーダル -->
+  <!-- ユーザーモーダル -->
   <div id="userModal" class="modal hidden">
     <div class="modal-content">
       <h3 class="text-lg font-bold mb-4" id="userModalTitle">ユーザー追加</h3>
       <input type="hidden" id="editUserId">
       <div class="mb-4">
-        <label class="block text-gray-700 mb-2">名前</label>
+        <label class="block text-gray-700 text-sm mb-2">名前</label>
         <input type="text" id="userName" class="input" placeholder="名前を入力">
       </div>
       <div class="mb-4">
-        <label class="block text-gray-700 mb-2">部署</label>
-        <select id="userDept" class="input">
-          <!-- 動的に追加 -->
-        </select>
+        <label class="block text-gray-700 text-sm mb-2">部署</label>
+        <select id="userDept" class="input"></select>
       </div>
-      <div class="flex gap-3">
+      <div class="flex gap-2">
         <button onclick="saveUser()" class="flex-1 btn-primary">保存</button>
         <button onclick="closeUserModal()" class="flex-1 btn-secondary">キャンセル</button>
       </div>
     </div>
   </div>
   
-  <!-- 部署追加/編集モーダル -->
+  <!-- 部署モーダル -->
   <div id="deptModal" class="modal hidden">
     <div class="modal-content">
       <h3 class="text-lg font-bold mb-4" id="deptModalTitle">部署追加</h3>
       <input type="hidden" id="editDeptId">
       <div class="mb-4">
-        <label class="block text-gray-700 mb-2">部署名</label>
+        <label class="block text-gray-700 text-sm mb-2">部署名</label>
         <input type="text" id="deptName" class="input" placeholder="部署名を入力">
       </div>
       <div class="mb-4">
-        <label class="block text-gray-700 mb-2">カラー</label>
+        <label class="block text-gray-700 text-sm mb-2">カラー</label>
         <input type="color" id="deptColor" class="w-full h-12 rounded-lg cursor-pointer" value="#10B981">
       </div>
-      <div class="flex gap-3">
+      <div class="flex gap-2">
         <button onclick="saveDept()" class="flex-1 btn-primary">保存</button>
         <button onclick="closeDeptModal()" class="flex-1 btn-secondary">キャンセル</button>
       </div>
@@ -314,12 +331,8 @@
     let allUsers = [];
     let allDepartments = [];
     
-    // 初期化
-    document.addEventListener('DOMContentLoaded', () => {
-      loadUserList();
-    });
+    document.addEventListener('DOMContentLoaded', () => loadUserList());
     
-    // ユーザーリスト読み込み（ログイン用）
     async function loadUserList() {
       try {
         const res = await axios.get('/api/users');
@@ -334,13 +347,9 @@
       }
     }
     
-    // 管理者ログイン
     async function adminLogin() {
       const userId = document.getElementById('adminUserSelect').value;
-      if (!userId) {
-        alert('ユーザーを選択してください');
-        return;
-      }
+      if (!userId) { alert('ユーザーを選択してください'); return; }
       
       try {
         const res = await axios.post('/api/admin/auth', { user_id: parseInt(userId) });
@@ -357,16 +366,14 @@
       }
     }
     
-    // ログアウト
     function logout() {
       adminUser = null;
       document.getElementById('adminPanel').classList.add('hidden');
       document.getElementById('loginScreen').classList.remove('hidden');
     }
     
-    // タブ切り替え
     function switchTab(tab) {
-      document.querySelectorAll('.tab-btn').forEach(btn => {
+      document.querySelectorAll('.nav-item').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
       });
       document.querySelectorAll('.tab-content').forEach(content => {
@@ -383,7 +390,6 @@
       }
     }
     
-    // ダッシュボード読み込み
     async function loadDashboard() {
       try {
         const res = await axios.get(`/api/admin/dashboard?admin_user_id=${adminUser.user_id}`);
@@ -394,13 +400,12 @@
         document.getElementById('statThanks').textContent = stats.total_thanks;
         document.getElementById('statPoints').textContent = Math.round(stats.total_points);
         
-        const recentDiv = document.getElementById('recentThanks');
-        recentDiv.innerHTML = recent_thanks.map(t => `
-          <div class="p-2 bg-gray-50 rounded-lg text-sm">
+        document.getElementById('recentThanks').innerHTML = recent_thanks.map(t => `
+          <div class="p-2 bg-gray-50 rounded-lg">
             <span class="font-semibold">${t.sender_name}</span>
             <span class="text-gray-400">→</span>
             <span class="font-semibold">${t.receiver_name}</span>
-            <span class="text-green-600 ml-2">+${t.final_points || t.points}pt</span>
+            <span class="text-green-600 ml-1">+${t.final_points || t.points}pt</span>
           </div>
         `).join('');
       } catch (error) {
@@ -408,33 +413,24 @@
       }
     }
     
-    // ユーザー一覧読み込み
     async function loadUsers() {
       try {
         const res = await axios.get(`/api/admin/users?admin_user_id=${adminUser.user_id}`);
         allUsers = res.data.users || [];
         
-        const tbody = document.getElementById('usersTable');
-        tbody.innerHTML = allUsers.map(user => `
-          <tr class="table-row">
-            <td class="px-4 py-3">${user.id}</td>
-            <td class="px-4 py-3 font-semibold">${user.name}</td>
-            <td class="px-4 py-3">
+        document.getElementById('usersTable').innerHTML = allUsers.map(user => `
+          <tr>
+            <td class="font-semibold">${user.name}</td>
+            <td>
               <span class="inline-flex items-center gap-1">
-                <span class="w-3 h-3 rounded-full" style="background-color: ${user.department_color}"></span>
+                <span class="w-2 h-2 rounded-full" style="background-color: ${user.department_color}"></span>
                 ${user.department_name}
               </span>
             </td>
-            <td class="px-4 py-3 text-right">${Math.round(user.total_received_points)}</td>
-            <td class="px-4 py-3 text-right">${Math.round(user.total_sent_points)}</td>
-            <td class="px-4 py-3 text-right">${user.daily_seeds}</td>
-            <td class="px-4 py-3 text-center">
-              <button onclick="editUser(${user.id})" class="text-blue-500 hover:text-blue-700 mr-2">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button onclick="deleteUser(${user.id}, '${user.name}')" class="text-red-500 hover:text-red-700">
-                <i class="fas fa-trash"></i>
-              </button>
+            <td>${Math.round(user.total_received_points)}</td>
+            <td>
+              <button onclick="editUser(${user.id})" class="text-blue-500 p-1"><i class="fas fa-edit"></i></button>
+              <button onclick="deleteUser(${user.id}, '${user.name}')" class="text-red-500 p-1"><i class="fas fa-trash"></i></button>
             </td>
           </tr>
         `).join('');
@@ -443,39 +439,24 @@
       }
     }
     
-    // 部署一覧読み込み
     async function loadDepartments() {
       try {
         const res = await axios.get(`/api/admin/departments?admin_user_id=${adminUser.user_id}`);
         allDepartments = res.data.departments || [];
         
-        // テーブル更新
-        const tbody = document.getElementById('departmentsTable');
-        tbody.innerHTML = allDepartments.map(dept => `
-          <tr class="table-row">
-            <td class="px-4 py-3">${dept.id}</td>
-            <td class="px-4 py-3 font-semibold">${dept.name}</td>
-            <td class="px-4 py-3">
-              <span class="inline-flex items-center gap-2">
-                <span class="w-6 h-6 rounded" style="background-color: ${dept.color}"></span>
-                ${dept.color}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-right">${dept.member_count}人</td>
-            <td class="px-4 py-3 text-center">
-              <button onclick="editDept(${dept.id})" class="text-blue-500 hover:text-blue-700 mr-2">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button onclick="deleteDept(${dept.id}, '${dept.name}')" class="text-red-500 hover:text-red-700">
-                <i class="fas fa-trash"></i>
-              </button>
+        document.getElementById('departmentsTable').innerHTML = allDepartments.map(dept => `
+          <tr>
+            <td class="font-semibold">${dept.name}</td>
+            <td><span class="inline-block w-6 h-6 rounded" style="background-color: ${dept.color}"></span></td>
+            <td>${dept.member_count}人</td>
+            <td>
+              <button onclick="editDept(${dept.id})" class="text-blue-500 p-1"><i class="fas fa-edit"></i></button>
+              <button onclick="deleteDept(${dept.id}, '${dept.name}')" class="text-red-500 p-1"><i class="fas fa-trash"></i></button>
             </td>
           </tr>
         `).join('');
         
-        // ユーザー追加モーダルの部署選択も更新
-        const userDeptSelect = document.getElementById('userDept');
-        userDeptSelect.innerHTML = allDepartments.map(d => 
+        document.getElementById('userDept').innerHTML = allDepartments.map(d => 
           `<option value="${d.id}">${d.name}</option>`
         ).join('');
       } catch (error) {
@@ -483,28 +464,18 @@
       }
     }
     
-    // 感謝データ読み込み
     async function loadThanks() {
       try {
         const res = await axios.get(`/api/admin/thanks?admin_user_id=${adminUser.user_id}`);
         const thanks = res.data.thanks || [];
         
-        const tbody = document.getElementById('thanksTable');
-        tbody.innerHTML = thanks.map(t => `
-          <tr class="table-row">
-            <td class="px-3 py-2">${t.id}</td>
-            <td class="px-3 py-2">${t.sender_name}<br><span class="text-xs text-gray-400">${t.sender_department}</span></td>
-            <td class="px-3 py-2">${t.receiver_name}<br><span class="text-xs text-gray-400">${t.receiver_department}</span></td>
-            <td class="px-3 py-2 max-w-xs truncate">${t.message}</td>
-            <td class="px-3 py-2 text-right">
-              ${t.final_points || t.points}pt
-              ${t.bonus_multiplier > 1 ? `<span class="text-xs text-green-500">(x${t.bonus_multiplier})</span>` : ''}
-            </td>
-            <td class="px-3 py-2 text-xs">${new Date(t.created_at).toLocaleString('ja-JP')}</td>
-            <td class="px-3 py-2 text-center">
-              <button onclick="deleteThanks(${t.id})" class="text-red-500 hover:text-red-700">
-                <i class="fas fa-trash"></i>
-              </button>
+        document.getElementById('thanksTable').innerHTML = thanks.map(t => `
+          <tr>
+            <td>${t.sender_name}</td>
+            <td>${t.receiver_name}</td>
+            <td>${t.final_points || t.points}</td>
+            <td>
+              <button onclick="deleteThanks(${t.id})" class="text-red-500 p-1"><i class="fas fa-trash"></i></button>
             </td>
           </tr>
         `).join('');
@@ -513,32 +484,22 @@
       }
     }
     
-    // ログ読み込み
     async function loadLogs() {
       try {
         const res = await axios.get(`/api/admin/logs?admin_user_id=${adminUser.user_id}`);
         const logs = res.data.logs || [];
         
         const actionLabels = {
-          'CREATE_USER': '👤 ユーザー作成',
-          'UPDATE_USER': '✏️ ユーザー更新',
-          'DELETE_USER': '🗑️ ユーザー削除',
-          'CREATE_DEPARTMENT': '🏢 部署作成',
-          'UPDATE_DEPARTMENT': '✏️ 部署更新',
-          'DELETE_DEPARTMENT': '🗑️ 部署削除',
-          'DELETE_THANKS': '💔 感謝削除',
-          'RESET_ALL_POINTS': '🔄 全ポイントリセット',
-          'RESET_ALL_SEEDS': '🌱 全シードリセット'
+          'CREATE_USER': '👤作成', 'UPDATE_USER': '✏️更新', 'DELETE_USER': '🗑️削除',
+          'CREATE_DEPARTMENT': '🏢作成', 'UPDATE_DEPARTMENT': '✏️更新', 'DELETE_DEPARTMENT': '🗑️削除',
+          'DELETE_THANKS': '💔削除', 'RESET_ALL_POINTS': '🔄pt', 'RESET_ALL_SEEDS': '🌱種'
         };
         
-        const tbody = document.getElementById('logsTable');
-        tbody.innerHTML = logs.map(log => `
-          <tr class="table-row">
-            <td class="px-3 py-2 text-xs">${new Date(log.created_at).toLocaleString('ja-JP')}</td>
-            <td class="px-3 py-2">${log.admin_name}</td>
-            <td class="px-3 py-2">${actionLabels[log.action] || log.action}</td>
-            <td class="px-3 py-2">${log.target_type ? `${log.target_type} #${log.target_id}` : '-'}</td>
-            <td class="px-3 py-2">${log.details || '-'}</td>
+        document.getElementById('logsTable').innerHTML = logs.map(log => `
+          <tr>
+            <td class="text-xs">${new Date(log.created_at).toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+            <td>${log.admin_name}</td>
+            <td>${actionLabels[log.action] || log.action}</td>
           </tr>
         `).join('');
       } catch (error) {
@@ -546,7 +507,6 @@
       }
     }
     
-    // ユーザーモーダル表示
     function showAddUserModal() {
       document.getElementById('userModalTitle').textContent = 'ユーザー追加';
       document.getElementById('editUserId').value = '';
@@ -557,7 +517,6 @@
     function editUser(userId) {
       const user = allUsers.find(u => u.id === userId);
       if (!user) return;
-      
       document.getElementById('userModalTitle').textContent = 'ユーザー編集';
       document.getElementById('editUserId').value = userId;
       document.getElementById('userName').value = user.name;
@@ -565,33 +524,20 @@
       document.getElementById('userModal').classList.remove('hidden');
     }
     
-    function closeUserModal() {
-      document.getElementById('userModal').classList.add('hidden');
-    }
+    function closeUserModal() { document.getElementById('userModal').classList.add('hidden'); }
     
     async function saveUser() {
       const userId = document.getElementById('editUserId').value;
       const name = document.getElementById('userName').value.trim();
       const department_id = parseInt(document.getElementById('userDept').value);
       
-      if (!name) {
-        alert('名前を入力してください');
-        return;
-      }
+      if (!name) { alert('名前を入力してください'); return; }
       
       try {
         if (userId) {
-          await axios.put(`/api/admin/users/${userId}`, {
-            admin_user_id: adminUser.user_id,
-            name,
-            department_id
-          });
+          await axios.put(`/api/admin/users/${userId}`, { admin_user_id: adminUser.user_id, name, department_id });
         } else {
-          await axios.post('/api/admin/users', {
-            admin_user_id: adminUser.user_id,
-            name,
-            department_id
-          });
+          await axios.post('/api/admin/users', { admin_user_id: adminUser.user_id, name, department_id });
         }
         closeUserModal();
         loadUsers();
@@ -602,8 +548,7 @@
     }
     
     async function deleteUser(userId, userName) {
-      if (!confirm(`「${userName}」を削除しますか？\n関連する感謝データも削除されます。`)) return;
-      
+      if (!confirm(`「${userName}」を削除しますか？`)) return;
       try {
         await axios.delete(`/api/admin/users/${userId}?admin_user_id=${adminUser.user_id}`);
         loadUsers();
@@ -613,7 +558,6 @@
       }
     }
     
-    // 部署モーダル
     function showAddDeptModal() {
       document.getElementById('deptModalTitle').textContent = '部署追加';
       document.getElementById('editDeptId').value = '';
@@ -625,7 +569,6 @@
     function editDept(deptId) {
       const dept = allDepartments.find(d => d.id === deptId);
       if (!dept) return;
-      
       document.getElementById('deptModalTitle').textContent = '部署編集';
       document.getElementById('editDeptId').value = deptId;
       document.getElementById('deptName').value = dept.name;
@@ -633,33 +576,20 @@
       document.getElementById('deptModal').classList.remove('hidden');
     }
     
-    function closeDeptModal() {
-      document.getElementById('deptModal').classList.add('hidden');
-    }
+    function closeDeptModal() { document.getElementById('deptModal').classList.add('hidden'); }
     
     async function saveDept() {
       const deptId = document.getElementById('editDeptId').value;
       const name = document.getElementById('deptName').value.trim();
       const color = document.getElementById('deptColor').value;
       
-      if (!name) {
-        alert('部署名を入力してください');
-        return;
-      }
+      if (!name) { alert('部署名を入力してください'); return; }
       
       try {
         if (deptId) {
-          await axios.put(`/api/admin/departments/${deptId}`, {
-            admin_user_id: adminUser.user_id,
-            name,
-            color
-          });
+          await axios.put(`/api/admin/departments/${deptId}`, { admin_user_id: adminUser.user_id, name, color });
         } else {
-          await axios.post('/api/admin/departments', {
-            admin_user_id: adminUser.user_id,
-            name,
-            color
-          });
+          await axios.post('/api/admin/departments', { admin_user_id: adminUser.user_id, name, color });
         }
         closeDeptModal();
         loadDepartments();
@@ -671,7 +601,6 @@
     
     async function deleteDept(deptId, deptName) {
       if (!confirm(`「${deptName}」を削除しますか？`)) return;
-      
       try {
         await axios.delete(`/api/admin/departments/${deptId}?admin_user_id=${adminUser.user_id}`);
         loadDepartments();
@@ -683,7 +612,6 @@
     
     async function deleteThanks(thanksId) {
       if (!confirm('この感謝データを削除しますか？')) return;
-      
       try {
         await axios.delete(`/api/admin/thanks/${thanksId}?admin_user_id=${adminUser.user_id}`);
         loadThanks();
@@ -695,7 +623,6 @@
     
     async function resetAllSeeds() {
       if (!confirm('全ユーザーのシードを3にリセットしますか？')) return;
-      
       try {
         await axios.post('/api/admin/reset-seeds', { admin_user_id: adminUser.user_id });
         alert('全ユーザーのシードをリセットしました');
@@ -705,7 +632,7 @@
     }
     
     function confirmResetPoints() {
-      if (!confirm('⚠️ 警告: 全ユーザーのポイントをリセットしますか？\nこの操作は取り消せません。')) return;
+      if (!confirm('⚠️ 全ユーザーのポイントをリセットしますか？\nこの操作は取り消せません。')) return;
       if (!confirm('本当によろしいですか？')) return;
       resetAllPoints();
     }

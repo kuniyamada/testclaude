@@ -3,10 +3,28 @@ import type { Bindings } from '../types';
 
 const users = new Hono<{ Bindings: Bindings }>();
 
+// 日本時間で現在の日付を取得
+function getJSTDate(): string {
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstDate = new Date(now.getTime() + jstOffset);
+  return jstDate.toISOString().slice(0, 10);
+}
+
+// 日本時間で現在の年月を取得
+function getJSTYearMonth(): string {
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstDate = new Date(now.getTime() + jstOffset);
+  const year = jstDate.getUTCFullYear();
+  const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
 // 全ユーザー取得（月間ポイント付き）
 users.get('/', async (c) => {
   const db = c.env.DB;
-  const yearMonth = new Date().toISOString().slice(0, 7);
+  const yearMonth = getJSTYearMonth();
   
   const result = await db.prepare(`
     SELECT 
@@ -14,7 +32,7 @@ users.get('/', async (c) => {
       d.name as department_name,
       d.color as department_color,
       COALESCE(
-        (SELECT SUM(points) 
+        (SELECT SUM(final_points) 
          FROM thanks 
          WHERE receiver_id = u.id 
          AND strftime('%Y-%m', created_at) = ?
@@ -47,7 +65,7 @@ users.get('/:id', async (c) => {
   return c.json({ user: result });
 });
 
-// 種のリセット（毎日）
+// 種のリセット（毎日・日本時間基準）
 users.post('/:id/reset-seeds', async (c) => {
   const db = c.env.DB;
   const id = c.req.param('id');
@@ -58,18 +76,21 @@ users.post('/:id/reset-seeds', async (c) => {
     return c.json({ error: 'User not found' }, 404);
   }
   
-  const today = new Date().toISOString().slice(0, 10);
+  const todayJST = getJSTDate();
   const lastReset = user.last_seed_reset ? user.last_seed_reset.slice(0, 10) : null;
   
-  if (lastReset !== today) {
+  // 日本時間で日付が変わっていたらシードをリセット
+  if (lastReset !== todayJST) {
     await db.prepare(`
       UPDATE users 
-      SET daily_seeds = 3, last_seed_reset = CURRENT_TIMESTAMP 
+      SET daily_seeds = 3, last_seed_reset = ? 
       WHERE id = ?
-    `).bind(id).run();
+    `).bind(todayJST, id).run();
+    
+    return c.json({ success: true, reset: true, seeds: 3 });
   }
   
-  return c.json({ success: true });
+  return c.json({ success: true, reset: false, seeds: user.daily_seeds });
 });
 
 // ツリー更新
@@ -83,10 +104,11 @@ users.post('/:id/update-tree', async (c) => {
     return c.json({ error: 'User not found' }, 404);
   }
   
+  const totalPoints = (user.total_received_points || 0) + (user.total_sent_points || 0);
   const levels = [0, 10, 30, 50, 70, 100, 150, 200, 300, 500];
   let newLevel = 1;
   for (let i = levels.length - 1; i >= 0; i--) {
-    if (user.total_received_points >= levels[i]) {
+    if (totalPoints >= levels[i]) {
       newLevel = i + 1;
       break;
     }
