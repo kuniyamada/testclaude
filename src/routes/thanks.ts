@@ -145,22 +145,21 @@ app.post('/send', async (c) => {
       isCrossDepartment ? 1 : 0
     ).run();
     
-    // 送信者の種を減らし、ポイントを増やす
+    // 送信者の種を減らし、送信ポイントを増やす
+    // 本番DBはtotal_sent_pointsとtotal_received_pointsを使用
     await DB.prepare(`
       UPDATE users 
       SET daily_seeds = daily_seeds - 1,
-          total_points = total_points + ?,
-          updated_at = datetime('now')
+          total_sent_points = total_sent_points + ?
       WHERE id = ?
     `).bind(finalPoints, sender_id).run();
     
-    // 受信者のポイントも増やす
+    // 受信者の受信ポイントを増やす
     await DB.prepare(`
       UPDATE users 
-      SET total_points = total_points + ?,
-          updated_at = datetime('now')
+      SET total_received_points = total_received_points + ?
       WHERE id = ?
-    `).bind(Math.floor(finalPoints * 0.5), receiver_id).run();
+    `).bind(finalPoints, receiver_id).run();
     
     return c.json({
       success: true,
