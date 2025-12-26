@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理画面 - Thanks Garden</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+  <style>
+    .btn-primary { @apply bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition; }
+    .btn-danger { @apply bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition; }
+    .btn-secondary { @apply bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition; }
+    .card { @apply bg-white rounded-xl shadow-lg p-6; }
+    .input { @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent; }
+    .table-row { @apply border-b hover:bg-gray-50 transition; }
+    .tab-btn { @apply px-4 py-2 rounded-t-lg transition cursor-pointer; }
+    .tab-btn.active { @apply bg-white text-green-600 font-bold border-b-2 border-green-500; }
+    .tab-btn:not(.active) { @apply bg-gray-100 text-gray-600 hover:bg-gray-200; }
+    .modal { @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50; }
+    .modal-content { @apply bg-white rounded-xl p-6 max-w-md w-full mx-4; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-emerald-100 min-h-screen">
+  <!-- ログイン画面 -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="card max-w-md w-full text-center">
+      <div class="text-6xl mb-4">🔐</div>
+      <h1 class="text-2xl font-bold text-gray-800 mb-2">管理者ログイン</h1>
+      <p class="text-gray-600 mb-6">Thanks Garden 管理システム</p>
+      
+      <div class="mb-4">
+        <select id="adminUserSelect" class="input">
+          <option value="">ユーザーを選択...</option>
+        </select>
+      </div>
+      
+      <button onclick="adminLogin()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition">
+        <i class="fas fa-sign-in-alt mr-2"></i>ログイン
+      </button>
+      
+      <p class="text-sm text-gray-500 mt-4">
+        ※ 管理者権限を持つユーザーのみログイン可能です
+      </p>
+    </div>
+  </div>
+  
+  <!-- 管理画面 -->
+  <div id="adminPanel" class="hidden">
+    <!-- ヘッダー -->
+    <header class="bg-white shadow-md">
+      <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <span class="text-3xl">🌳</span>
+          <div>
+            <h1 class="text-xl font-bold text-gray-800">Thanks Garden 管理</h1>
+            <p class="text-sm text-gray-500">Admin Panel</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-gray-600">
+            <i class="fas fa-user-shield mr-1"></i>
+            <span id="adminName">管理者</span>
+          </span>
+          <button onclick="logout()" class="btn-secondary text-sm">
+            <i class="fas fa-sign-out-alt mr-1"></i>ログアウト
+          </button>
+        </div>
+      </div>
+    </header>
+    
+    <!-- タブナビゲーション -->
+    <div class="max-w-7xl mx-auto px-4 mt-6">
+      <div class="flex gap-1 border-b border-gray-200">
+        <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+          <i class="fas fa-chart-line mr-1"></i>ダッシュボード
+        </button>
+        <button class="tab-btn" data-tab="users" onclick="switchTab('users')">
+          <i class="fas fa-users mr-1"></i>ユーザー管理
+        </button>
+        <button class="tab-btn" data-tab="departments" onclick="switchTab('departments')">
+          <i class="fas fa-building mr-1"></i>部署管理
+        </button>
+        <button class="tab-btn" data-tab="thanks" onclick="switchTab('thanks')">
+          <i class="fas fa-heart mr-1"></i>感謝データ
+        </button>
+        <button class="tab-btn" data-tab="logs" onclick="switchTab('logs')">
+          <i class="fas fa-history mr-1"></i>操作ログ
+        </button>
+      </div>
+    </div>
+    
+    <!-- コンテンツ -->
+    <div class="max-w-7xl mx-auto px-4 py-6">
+      <!-- ダッシュボード -->
+      <div id="dashboardTab" class="tab-content">
+        <div class="grid md:grid-cols-4 gap-4 mb-6">
+          <div class="card text-center">
+            <div class="text-3xl mb-2">👥</div>
+            <div class="text-2xl font-bold text-blue-600" id="statUsers">-</div>
+            <div class="text-gray-500">ユーザー数</div>
+          </div>
+          <div class="card text-center">
+            <div class="text-3xl mb-2">🏢</div>
+            <div class="text-2xl font-bold text-green-600" id="statDepts">-</div>
+            <div class="text-gray-500">部署数</div>
+          </div>
+          <div class="card text-center">
+            <div class="text-3xl mb-2">💝</div>
+            <div class="text-2xl font-bold text-pink-600" id="statThanks">-</div>
+            <div class="text-gray-500">総感謝数</div>
+          </div>
+          <div class="card text-center">
+            <div class="text-3xl mb-2">⭐</div>
+            <div class="text-2xl font-bold text-yellow-600" id="statPoints">-</div>
+            <div class="text-gray-500">総ポイント</div>
+          </div>
+        </div>
+        
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="card">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+              <i class="fas fa-bolt text-yellow-500 mr-2"></i>クイックアクション
+            </h3>
+            <div class="space-y-3">
+              <button onclick="resetAllSeeds()" class="w-full btn-primary text-left">
+                <i class="fas fa-seedling mr-2"></i>全ユーザーのシードをリセット
+              </button>
+              <button onclick="confirmResetPoints()" class="w-full btn-danger text-left">
+                <i class="fas fa-redo mr-2"></i>全ユーザーのポイントをリセット
+              </button>
+            </div>
+          </div>
+          
+          <div class="card">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+              <i class="fas fa-clock text-blue-500 mr-2"></i>最近の感謝
+            </h3>
+            <div id="recentThanks" class="space-y-2 max-h-64 overflow-y-auto">
+              <!-- 動的に追加 -->
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- ユーザー管理 -->
+      <div id="usersTab" class="tab-content hidden">
+        <div class="card">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-800">
+              <i class="fas fa-users text-blue-500 mr-2"></i>ユーザー一覧
+            </h3>
+            <button onclick="showAddUserModal()" class="btn-primary">
+              <i class="fas fa-plus mr-1"></i>ユーザー追加
+            </button>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="px-4 py-3 text-left">ID</th>
+                  <th class="px-4 py-3 text-left">名前</th>
+                  <th class="px-4 py-3 text-left">部署</th>
+                  <th class="px-4 py-3 text-right">受信pt</th>
+                  <th class="px-4 py-3 text-right">送信pt</th>
+                  <th class="px-4 py-3 text-right">シード</th>
+                  <th class="px-4 py-3 text-center">操作</th>
+                </tr>
+              </thead>
+              <tbody id="usersTable">
+                <!-- 動的に追加 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 部署管理 -->
+      <div id="departmentsTab" class="tab-content hidden">
+        <div class="card">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-800">
+              <i class="fas fa-building text-green-500 mr-2"></i>部署一覧
+            </h3>
+            <button onclick="showAddDeptModal()" class="btn-primary">
+              <i class="fas fa-plus mr-1"></i>部署追加
+            </button>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="px-4 py-3 text-left">ID</th>
+                  <th class="px-4 py-3 text-left">部署名</th>
+                  <th class="px-4 py-3 text-left">カラー</th>
+                  <th class="px-4 py-3 text-right">メンバー数</th>
+                  <th class="px-4 py-3 text-center">操作</th>
+                </tr>
+              </thead>
+              <tbody id="departmentsTable">
+                <!-- 動的に追加 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 感謝データ -->
+      <div id="thanksTab" class="tab-content hidden">
+        <div class="card">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-800">
+              <i class="fas fa-heart text-pink-500 mr-2"></i>感謝データ一覧
+            </h3>
+            <span class="text-gray-500">直近100件</span>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="px-3 py-2 text-left">ID</th>
+                  <th class="px-3 py-2 text-left">送信者</th>
+                  <th class="px-3 py-2 text-left">受信者</th>
+                  <th class="px-3 py-2 text-left">メッセージ</th>
+                  <th class="px-3 py-2 text-right">ポイント</th>
+                  <th class="px-3 py-2 text-left">日時</th>
+                  <th class="px-3 py-2 text-center">操作</th>
+                </tr>
+              </thead>
+              <tbody id="thanksTable">
+                <!-- 動的に追加 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 操作ログ -->
+      <div id="logsTab" class="tab-content hidden">
+        <div class="card">
+          <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-history text-purple-500 mr-2"></i>操作ログ
+          </h3>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="px-3 py-2 text-left">日時</th>
+                  <th class="px-3 py-2 text-left">管理者</th>
+                  <th class="px-3 py-2 text-left">操作</th>
+                  <th class="px-3 py-2 text-left">対象</th>
+                  <th class="px-3 py-2 text-left">詳細</th>
+                </tr>
+              </thead>
+              <tbody id="logsTable">
+                <!-- 動的に追加 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ユーザー追加/編集モーダル -->
+  <div id="userModal" class="modal hidden">
+    <div class="modal-content">
+      <h3 class="text-lg font-bold mb-4" id="userModalTitle">ユーザー追加</h3>
+      <input type="hidden" id="editUserId">
+      <div class="mb-4">
+        <label class="block text-gray-700 mb-2">名前</label>
+        <input type="text" id="userName" class="input" placeholder="名前を入力">
+      </div>
+      <div class="mb-4">
+        <label class="block text-gray-700 mb-2">部署</label>
+        <select id="userDept" class="input">
+          <!-- 動的に追加 -->
+        </select>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="saveUser()" class="flex-1 btn-primary">保存</button>
+        <button onclick="closeUserModal()" class="flex-1 btn-secondary">キャンセル</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 部署追加/編集モーダル -->
+  <div id="deptModal" class="modal hidden">
+    <div class="modal-content">
+      <h3 class="text-lg font-bold mb-4" id="deptModalTitle">部署追加</h3>
+      <input type="hidden" id="editDeptId">
+      <div class="mb-4">
+        <label class="block text-gray-700 mb-2">部署名</label>
+        <input type="text" id="deptName" class="input" placeholder="部署名を入力">
+      </div>
+      <div class="mb-4">
+        <label class="block text-gray-700 mb-2">カラー</label>
+        <input type="color" id="deptColor" class="w-full h-12 rounded-lg cursor-pointer" value="#10B981">
+      </div>
+      <div class="flex gap-3">
+        <button onclick="saveDept()" class="flex-1 btn-primary">保存</button>
+        <button onclick="closeDeptModal()" class="flex-1 btn-secondary">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let adminUser = null;
+    let allUsers = [];
+    let allDepartments = [];
+    
+    // 初期化
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserList();
+    });
+    
+    // ユーザーリスト読み込み（ログイン用）
+    async function loadUserList() {
+      try {
+        const res = await axios.get('/api/users');
+        allUsers = res.data.users || [];
+        const select = document.getElementById('adminUserSelect');
+        select.innerHTML = '<option value="">ユーザーを選択...</option>';
+        allUsers.forEach(user => {
+          select.innerHTML += `<option value="${user.id}">${user.name}（${user.department_name}）</option>`;
+        });
+      } catch (error) {
+        console.error('ユーザーリスト読み込みエラー:', error);
+      }
+    }
+    
+    // 管理者ログイン
+    async function adminLogin() {
+      const userId = document.getElementById('adminUserSelect').value;
+      if (!userId) {
+        alert('ユーザーを選択してください');
+        return;
+      }
+      
+      try {
+        const res = await axios.post('/api/admin/auth', { user_id: parseInt(userId) });
+        if (res.data.is_admin) {
+          adminUser = res.data.admin;
+          document.getElementById('adminName').textContent = adminUser.user_name;
+          document.getElementById('loginScreen').classList.add('hidden');
+          document.getElementById('adminPanel').classList.remove('hidden');
+          loadDashboard();
+          loadDepartments();
+        }
+      } catch (error) {
+        alert(error.response?.data?.error || '管理者権限がありません');
+      }
+    }
+    
+    // ログアウト
+    function logout() {
+      adminUser = null;
+      document.getElementById('adminPanel').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+    }
+    
+    // タブ切り替え
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+      });
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+      document.getElementById(`${tab}Tab`).classList.remove('hidden');
+      
+      switch(tab) {
+        case 'dashboard': loadDashboard(); break;
+        case 'users': loadUsers(); break;
+        case 'departments': loadDepartments(); break;
+        case 'thanks': loadThanks(); break;
+        case 'logs': loadLogs(); break;
+      }
+    }
+    
+    // ダッシュボード読み込み
+    async function loadDashboard() {
+      try {
+        const res = await axios.get(`/api/admin/dashboard?admin_user_id=${adminUser.user_id}`);
+        const { stats, recent_thanks } = res.data;
+        
+        document.getElementById('statUsers').textContent = stats.user_count;
+        document.getElementById('statDepts').textContent = stats.department_count;
+        document.getElementById('statThanks').textContent = stats.total_thanks;
+        document.getElementById('statPoints').textContent = Math.round(stats.total_points);
+        
+        const recentDiv = document.getElementById('recentThanks');
+        recentDiv.innerHTML = recent_thanks.map(t => `
+          <div class="p-2 bg-gray-50 rounded-lg text-sm">
+            <span class="font-semibold">${t.sender_name}</span>
+            <span class="text-gray-400">→</span>
+            <span class="font-semibold">${t.receiver_name}</span>
+            <span class="text-green-600 ml-2">+${t.final_points || t.points}pt</span>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('ダッシュボードエラー:', error);
+      }
+    }
+    
+    // ユーザー一覧読み込み
+    async function loadUsers() {
+      try {
+        const res = await axios.get(`/api/admin/users?admin_user_id=${adminUser.user_id}`);
+        allUsers = res.data.users || [];
+        
+        const tbody = document.getElementById('usersTable');
+        tbody.innerHTML = allUsers.map(user => `
+          <tr class="table-row">
+            <td class="px-4 py-3">${user.id}</td>
+            <td class="px-4 py-3 font-semibold">${user.name}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center gap-1">
+                <span class="w-3 h-3 rounded-full" style="background-color: ${user.department_color}"></span>
+                ${user.department_name}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-right">${Math.round(user.total_received_points)}</td>
+            <td class="px-4 py-3 text-right">${Math.round(user.total_sent_points)}</td>
+            <td class="px-4 py-3 text-right">${user.daily_seeds}</td>
+            <td class="px-4 py-3 text-center">
+              <button onclick="editUser(${user.id})" class="text-blue-500 hover:text-blue-700 mr-2">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button onclick="deleteUser(${user.id}, '${user.name}')" class="text-red-500 hover:text-red-700">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        console.error('ユーザー一覧エラー:', error);
+      }
+    }
+    
+    // 部署一覧読み込み
+    async function loadDepartments() {
+      try {
+        const res = await axios.get(`/api/admin/departments?admin_user_id=${adminUser.user_id}`);
+        allDepartments = res.data.departments || [];
+        
+        // テーブル更新
+        const tbody = document.getElementById('departmentsTable');
+        tbody.innerHTML = allDepartments.map(dept => `
+          <tr class="table-row">
+            <td class="px-4 py-3">${dept.id}</td>
+            <td class="px-4 py-3 font-semibold">${dept.name}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center gap-2">
+                <span class="w-6 h-6 rounded" style="background-color: ${dept.color}"></span>
+                ${dept.color}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-right">${dept.member_count}人</td>
+            <td class="px-4 py-3 text-center">
+              <button onclick="editDept(${dept.id})" class="text-blue-500 hover:text-blue-700 mr-2">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button onclick="deleteDept(${dept.id}, '${dept.name}')" class="text-red-500 hover:text-red-700">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+        
+        // ユーザー追加モーダルの部署選択も更新
+        const userDeptSelect = document.getElementById('userDept');
+        userDeptSelect.innerHTML = allDepartments.map(d => 
+          `<option value="${d.id}">${d.name}</option>`
+        ).join('');
+      } catch (error) {
+        console.error('部署一覧エラー:', error);
+      }
+    }
+    
+    // 感謝データ読み込み
+    async function loadThanks() {
+      try {
+        const res = await axios.get(`/api/admin/thanks?admin_user_id=${adminUser.user_id}`);
+        const thanks = res.data.thanks || [];
+        
+        const tbody = document.getElementById('thanksTable');
+        tbody.innerHTML = thanks.map(t => `
+          <tr class="table-row">
+            <td class="px-3 py-2">${t.id}</td>
+            <td class="px-3 py-2">${t.sender_name}<br><span class="text-xs text-gray-400">${t.sender_department}</span></td>
+            <td class="px-3 py-2">${t.receiver_name}<br><span class="text-xs text-gray-400">${t.receiver_department}</span></td>
+            <td class="px-3 py-2 max-w-xs truncate">${t.message}</td>
+            <td class="px-3 py-2 text-right">
+              ${t.final_points || t.points}pt
+              ${t.bonus_multiplier > 1 ? `<span class="text-xs text-green-500">(x${t.bonus_multiplier})</span>` : ''}
+            </td>
+            <td class="px-3 py-2 text-xs">${new Date(t.created_at).toLocaleString('ja-JP')}</td>
+            <td class="px-3 py-2 text-center">
+              <button onclick="deleteThanks(${t.id})" class="text-red-500 hover:text-red-700">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        console.error('感謝データエラー:', error);
+      }
+    }
+    
+    // ログ読み込み
+    async function loadLogs() {
+      try {
+        const res = await axios.get(`/api/admin/logs?admin_user_id=${adminUser.user_id}`);
+        const logs = res.data.logs || [];
+        
+        const actionLabels = {
+          'CREATE_USER': '👤 ユーザー作成',
+          'UPDATE_USER': '✏️ ユーザー更新',
+          'DELETE_USER': '🗑️ ユーザー削除',
+          'CREATE_DEPARTMENT': '🏢 部署作成',
+          'UPDATE_DEPARTMENT': '✏️ 部署更新',
+          'DELETE_DEPARTMENT': '🗑️ 部署削除',
+          'DELETE_THANKS': '💔 感謝削除',
+          'RESET_ALL_POINTS': '🔄 全ポイントリセット',
+          'RESET_ALL_SEEDS': '🌱 全シードリセット'
+        };
+        
+        const tbody = document.getElementById('logsTable');
+        tbody.innerHTML = logs.map(log => `
+          <tr class="table-row">
+            <td class="px-3 py-2 text-xs">${new Date(log.created_at).toLocaleString('ja-JP')}</td>
+            <td class="px-3 py-2">${log.admin_name}</td>
+            <td class="px-3 py-2">${actionLabels[log.action] || log.action}</td>
+            <td class="px-3 py-2">${log.target_type ? `${log.target_type} #${log.target_id}` : '-'}</td>
+            <td class="px-3 py-2">${log.details || '-'}</td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        console.error('ログエラー:', error);
+      }
+    }
+    
+    // ユーザーモーダル表示
+    function showAddUserModal() {
+      document.getElementById('userModalTitle').textContent = 'ユーザー追加';
+      document.getElementById('editUserId').value = '';
+      document.getElementById('userName').value = '';
+      document.getElementById('userModal').classList.remove('hidden');
+    }
+    
+    function editUser(userId) {
+      const user = allUsers.find(u => u.id === userId);
+      if (!user) return;
+      
+      document.getElementById('userModalTitle').textContent = 'ユーザー編集';
+      document.getElementById('editUserId').value = userId;
+      document.getElementById('userName').value = user.name;
+      document.getElementById('userDept').value = user.department_id;
+      document.getElementById('userModal').classList.remove('hidden');
+    }
+    
+    function closeUserModal() {
+      document.getElementById('userModal').classList.add('hidden');
+    }
+    
+    async function saveUser() {
+      const userId = document.getElementById('editUserId').value;
+      const name = document.getElementById('userName').value.trim();
+      const department_id = parseInt(document.getElementById('userDept').value);
+      
+      if (!name) {
+        alert('名前を入力してください');
+        return;
+      }
+      
+      try {
+        if (userId) {
+          await axios.put(`/api/admin/users/${userId}`, {
+            admin_user_id: adminUser.user_id,
+            name,
+            department_id
+          });
+        } else {
+          await axios.post('/api/admin/users', {
+            admin_user_id: adminUser.user_id,
+            name,
+            department_id
+          });
+        }
+        closeUserModal();
+        loadUsers();
+        alert('保存しました');
+      } catch (error) {
+        alert(error.response?.data?.error || '保存に失敗しました');
+      }
+    }
+    
+    async function deleteUser(userId, userName) {
+      if (!confirm(`「${userName}」を削除しますか？\n関連する感謝データも削除されます。`)) return;
+      
+      try {
+        await axios.delete(`/api/admin/users/${userId}?admin_user_id=${adminUser.user_id}`);
+        loadUsers();
+        alert('削除しました');
+      } catch (error) {
+        alert(error.response?.data?.error || '削除に失敗しました');
+      }
+    }
+    
+    // 部署モーダル
+    function showAddDeptModal() {
+      document.getElementById('deptModalTitle').textContent = '部署追加';
+      document.getElementById('editDeptId').value = '';
+      document.getElementById('deptName').value = '';
+      document.getElementById('deptColor').value = '#10B981';
+      document.getElementById('deptModal').classList.remove('hidden');
+    }
+    
+    function editDept(deptId) {
+      const dept = allDepartments.find(d => d.id === deptId);
+      if (!dept) return;
+      
+      document.getElementById('deptModalTitle').textContent = '部署編集';
+      document.getElementById('editDeptId').value = deptId;
+      document.getElementById('deptName').value = dept.name;
+      document.getElementById('deptColor').value = dept.color;
+      document.getElementById('deptModal').classList.remove('hidden');
+    }
+    
+    function closeDeptModal() {
+      document.getElementById('deptModal').classList.add('hidden');
+    }
+    
+    async function saveDept() {
+      const deptId = document.getElementById('editDeptId').value;
+      const name = document.getElementById('deptName').value.trim();
+      const color = document.getElementById('deptColor').value;
+      
+      if (!name) {
+        alert('部署名を入力してください');
+        return;
+      }
+      
+      try {
+        if (deptId) {
+          await axios.put(`/api/admin/departments/${deptId}`, {
+            admin_user_id: adminUser.user_id,
+            name,
+            color
+          });
+        } else {
+          await axios.post('/api/admin/departments', {
+            admin_user_id: adminUser.user_id,
+            name,
+            color
+          });
+        }
+        closeDeptModal();
+        loadDepartments();
+        alert('保存しました');
+      } catch (error) {
+        alert(error.response?.data?.error || '保存に失敗しました');
+      }
+    }
+    
+    async function deleteDept(deptId, deptName) {
+      if (!confirm(`「${deptName}」を削除しますか？`)) return;
+      
+      try {
+        await axios.delete(`/api/admin/departments/${deptId}?admin_user_id=${adminUser.user_id}`);
+        loadDepartments();
+        alert('削除しました');
+      } catch (error) {
+        alert(error.response?.data?.error || '削除に失敗しました');
+      }
+    }
+    
+    async function deleteThanks(thanksId) {
+      if (!confirm('この感謝データを削除しますか？')) return;
+      
+      try {
+        await axios.delete(`/api/admin/thanks/${thanksId}?admin_user_id=${adminUser.user_id}`);
+        loadThanks();
+        alert('削除しました');
+      } catch (error) {
+        alert(error.response?.data?.error || '削除に失敗しました');
+      }
+    }
+    
+    async function resetAllSeeds() {
+      if (!confirm('全ユーザーのシードを3にリセットしますか？')) return;
+      
+      try {
+        await axios.post('/api/admin/reset-seeds', { admin_user_id: adminUser.user_id });
+        alert('全ユーザーのシードをリセットしました');
+      } catch (error) {
+        alert(error.response?.data?.error || 'リセットに失敗しました');
+      }
+    }
+    
+    function confirmResetPoints() {
+      if (!confirm('⚠️ 警告: 全ユーザーのポイントをリセットしますか？\nこの操作は取り消せません。')) return;
+      if (!confirm('本当によろしいですか？')) return;
+      resetAllPoints();
+    }
+    
+    async function resetAllPoints() {
+      try {
+        await axios.post('/api/admin/reset-points', { admin_user_id: adminUser.user_id });
+        alert('全ユーザーのポイントをリセットしました');
+        loadDashboard();
+      } catch (error) {
+        alert(error.response?.data?.error || 'リセットに失敗しました');
+      }
+    }
+  </script>
+</body>
+</html>

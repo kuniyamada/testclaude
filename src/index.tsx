@@ -10,6 +10,7 @@ import rankingsRoute from './routes/rankings';
 import companytreeRoute from './routes/companytree';
 import monthlyRoute from './routes/monthly';
 import gardenRoute from './routes/garden';
+import adminRoute from './routes/admin';
 
 type Bindings = {
   DB: D1Database;
@@ -31,6 +32,7 @@ app.route('/api/rankings', rankingsRoute);
 app.route('/api/companytree', companytreeRoute);
 app.route('/api/monthly', monthlyRoute);
 app.route('/api/garden', gardenRoute);
+app.route('/api/admin', adminRoute);
 
 // ヘルスチェック
 app.get('/api/health', (c) => {
