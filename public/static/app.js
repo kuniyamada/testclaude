@@ -201,7 +201,194 @@ function setupReceiverSelect() {
   });
 }
 
-// 感謝送信
+// ========================================
+// 🎰 ルーレットモーダル
+// ========================================
+
+const ROULETTE_ITEMS = [
+  { multiplier: 1, label: 'ノーマル', emoji: '💚', color: '#A5D6A7', weight: 40 },
+  { multiplier: 1.5, label: 'ラッキー！', emoji: '🍀', color: '#95E1D3', weight: 30 },
+  { multiplier: 2, label: 'スーパー！', emoji: '✨', color: '#4ECDC4', weight: 20 },
+  { multiplier: 3, label: 'ウルトラ！', emoji: '🌟', color: '#FF6B6B', weight: 8 },
+  { multiplier: 5, label: 'ジャックポット！', emoji: '🎰', color: '#FFD700', weight: 2 }
+];
+
+// ルーレットモーダルを表示
+function showRouletteModal(result, callback) {
+  // モーダルを作成
+  const modal = document.createElement('div');
+  modal.id = 'rouletteModal';
+  modal.innerHTML = `
+    <div style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      animation: fadeIn 0.3s ease;
+    ">
+      <div style="
+        background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+        border-radius: 24px;
+        padding: 32px;
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: popIn 0.5s ease;
+      ">
+        <h2 style="font-size: 24px; color: #166534; margin-bottom: 16px;">
+          🎰 ボーナスルーレット！
+        </h2>
+        
+        <!-- ルーレットホイール -->
+        <div id="rouletteWheel" style="
+          width: 200px;
+          height: 200px;
+          margin: 20px auto;
+          border-radius: 50%;
+          background: conic-gradient(
+            #A5D6A7 0deg 144deg,
+            #95E1D3 144deg 252deg,
+            #4ECDC4 252deg 324deg,
+            #FF6B6B 324deg 352.8deg,
+            #FFD700 352.8deg 360deg
+          );
+          position: relative;
+          animation: spin 3s cubic-bezier(0.17, 0.67, 0.12, 0.99) forwards;
+          box-shadow: 0 0 20px rgba(0,0,0,0.2), inset 0 0 30px rgba(255,255,255,0.3);
+        ">
+          <!-- 中央の円 -->
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+          ">🎲</div>
+        </div>
+        
+        <!-- ポインター -->
+        <div style="
+          width: 0;
+          height: 0;
+          border-left: 15px solid transparent;
+          border-right: 15px solid transparent;
+          border-top: 25px solid #166534;
+          margin: -10px auto 20px;
+        "></div>
+        
+        <!-- 結果表示（最初は非表示） -->
+        <div id="rouletteResult" style="display: none;">
+          <div id="resultEmoji" style="font-size: 64px; margin-bottom: 12px; animation: bounce 0.5s ease infinite;"></div>
+          <div id="resultLabel" style="font-size: 28px; font-weight: bold; margin-bottom: 8px;"></div>
+          <div id="resultMultiplier" style="font-size: 20px; color: #666; margin-bottom: 16px;"></div>
+          <div style="
+            background: linear-gradient(135deg, #4ade80, #22c55e);
+            border-radius: 16px;
+            padding: 16px;
+            color: white;
+          ">
+            <div style="font-size: 14px; opacity: 0.9;">獲得ポイント</div>
+            <div id="resultPoints" style="font-size: 36px; font-weight: bold;"></div>
+          </div>
+          <button id="rouletteCloseBtn" style="
+            margin-top: 20px;
+            background: linear-gradient(145deg, #4ade80, #22c55e);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            padding: 12px 32px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+          ">OK！</button>
+        </div>
+      </div>
+    </div>
+    
+    <style>
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes popIn {
+        from { transform: scale(0.8); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(${1440 + getRouletteAngle(result.roulette.multiplier)}deg); }
+      }
+      @keyframes bounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+      }
+      #rouletteCloseBtn:hover {
+        transform: scale(1.05);
+      }
+    </style>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // 3秒後に結果を表示
+  setTimeout(() => {
+    document.getElementById('rouletteWheel').style.animation = 'none';
+    document.getElementById('rouletteResult').style.display = 'block';
+    document.getElementById('resultEmoji').textContent = result.roulette.emoji;
+    document.getElementById('resultLabel').textContent = result.roulette.label;
+    document.getElementById('resultLabel').style.color = result.roulette.color;
+    document.getElementById('resultMultiplier').textContent = `${result.roulette.multiplier}x ボーナス！`;
+    document.getElementById('resultPoints').textContent = `+${result.points}pt`;
+    
+    // 効果音代わりにバイブレーション（対応端末のみ）
+    if (navigator.vibrate) {
+      navigator.vibrate([100, 50, 100, 50, 200]);
+    }
+  }, 3000);
+  
+  // 閉じるボタン
+  setTimeout(() => {
+    document.getElementById('rouletteCloseBtn').addEventListener('click', () => {
+      modal.remove();
+      if (callback) callback();
+    });
+  }, 3100);
+}
+
+// 倍率に応じたルーレットの角度を計算
+function getRouletteAngle(multiplier) {
+  // 各セクションの角度
+  // 1x: 0-144deg, 1.5x: 144-252deg, 2x: 252-324deg, 3x: 324-352.8deg, 5x: 352.8-360deg
+  const angles = {
+    1: 72,      // 0-144の中央
+    1.5: 198,   // 144-252の中央
+    2: 288,     // 252-324の中央
+    3: 338,     // 324-352.8の中央
+    5: 356      // 352.8-360の中央
+  };
+  return angles[multiplier] || 72;
+}
+
+// ========================================
+// 感謝送信（ルーレット付き）
+// ========================================
+
 async function sendThanks() {
   const receiverId = document.getElementById('receiverSelect').value;
   const message = document.getElementById('messageInput').value.trim();
@@ -221,6 +408,11 @@ async function sendThanks() {
     return;
   }
   
+  // ボタンを無効化
+  const sendBtn = document.getElementById('sendThanksBtn');
+  sendBtn.disabled = true;
+  sendBtn.textContent = '送信中...';
+  
   try {
     const response = await axios.post('/api/thanks/send', {
       sender_id: currentUser.id,
@@ -228,34 +420,37 @@ async function sendThanks() {
       message: message
     });
     
-    // 成功メッセージ
-    alert(`🌸 ${response.data.receiver_name}さんに感謝を送りました！\n獲得ポイント: ${response.data.points}pt`);
-    
-    // ユーザー情報更新
-    const userResponse = await axios.get(`/api/users/${currentUser.id}`);
-    currentUser = userResponse.data.user;
-    
-    document.getElementById('seedCount').textContent = currentUser.daily_seeds;
-    document.getElementById('totalPoints').textContent = currentUser.total_points;
-    updateMyTree();
-    
-    // フォームリセット
-    document.getElementById('receiverSelect').value = '';
-    document.getElementById('messageInput').value = '';
-    
-    // タイムライン更新
-    if (currentView === 'timeline') {
-      loadTimeline();
-    }
-    
-    // 庭更新
-    if (currentView === 'garden') {
-      loadGarden();
-    }
+    // 🎰 ルーレットモーダルを表示！
+    showRouletteModal(response.data, async () => {
+      // ユーザー情報更新
+      const userResponse = await axios.get(`/api/users/${currentUser.id}`);
+      currentUser = userResponse.data.user;
+      
+      document.getElementById('seedCount').textContent = currentUser.daily_seeds;
+      document.getElementById('totalPoints').textContent = currentUser.total_points;
+      updateMyTree();
+      
+      // フォームリセット
+      document.getElementById('receiverSelect').value = '';
+      document.getElementById('messageInput').value = '';
+      
+      // タイムライン更新
+      if (currentView === 'timeline') {
+        loadTimeline();
+      }
+      
+      // 庭更新
+      if (currentView === 'garden') {
+        loadGarden();
+      }
+    });
     
   } catch (error) {
     console.error('感謝送信エラー:', error);
     alert(error.response?.data?.error || '送信に失敗しました');
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent = '🌸 感謝を送る（種を1個使用）';
   }
 }
 
@@ -390,29 +585,44 @@ async function loadTimeline() {
     
     container.innerHTML = `
       <div class="space-y-4">
-        ${thanks.map(t => `
-          <div class="bg-white rounded-xl p-4 border-2 border-gray-100 hover:border-green-200 transition">
+        ${thanks.map(t => {
+          const hasBonus = t.bonus_multiplier && t.bonus_multiplier > 1;
+          const bonusLabel = hasBonus ? getBonusLabel(t.bonus_multiplier) : null;
+          return `
+          <div class="bg-white rounded-xl p-4 border-2 border-gray-100 hover:border-green-200 transition ${hasBonus ? 'ring-2 ring-yellow-300' : ''}">
             <div class="flex items-start gap-3">
               <div class="text-3xl">${t.is_cross_department ? '🌉' : '💝'}</div>
               <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
                   <span class="font-semibold" style="color: ${t.sender_color}">${t.sender_name}</span>
                   <span class="text-gray-400">→</span>
                   <span class="font-semibold" style="color: ${t.receiver_color}">${t.receiver_name}</span>
-                  <span class="text-sm text-green-600 ml-auto">+${t.points}pt</span>
+                  ${hasBonus ? `<span class="text-xs px-2 py-1 rounded-full" style="background: ${bonusLabel.color}; color: white;">${bonusLabel.emoji} ${t.bonus_multiplier}x</span>` : ''}
+                  <span class="text-sm text-green-600 ml-auto font-bold">+${t.final_points || t.points}pt</span>
                 </div>
                 <p class="text-gray-700">${t.message}</p>
                 <p class="text-xs text-gray-400 mt-2">${formatDate(t.created_at)}</p>
               </div>
             </div>
           </div>
-        `).join('')}
+        `}).join('')}
       </div>
     `;
   } catch (error) {
     console.error('タイムライン読み込みエラー:', error);
     container.innerHTML = '<div class="text-center py-8 text-red-500">読み込みに失敗しました</div>';
   }
+}
+
+// ボーナスラベルを取得
+function getBonusLabel(multiplier) {
+  const labels = {
+    1.5: { emoji: '🍀', color: '#95E1D3' },
+    2: { emoji: '✨', color: '#4ECDC4' },
+    3: { emoji: '🌟', color: '#FF6B6B' },
+    5: { emoji: '🎰', color: '#FFD700' }
+  };
+  return labels[multiplier] || { emoji: '💚', color: '#A5D6A7' };
 }
 
 // ランキング読み込み
