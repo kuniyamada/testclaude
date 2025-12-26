@@ -1,0 +1,574 @@
+// Thanks Garden - フロントエンドアプリケーション
+
+// グローバル状態
+let currentUser = null;
+let users = [];
+let departments = [];
+let currentView = 'companytree';
+
+// 日本時間で現在の年月を取得
+function getCurrentYearMonth() {
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstDate = new Date(now.getTime() + jstOffset);
+  const year = jstDate.getUTCFullYear();
+  const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+// 初期化
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await loadDepartments();
+    await loadUsers();
+    setupEventListeners();
+  } catch (error) {
+    console.error('初期化エラー:', error);
+  }
+});
+
+// 部署読み込み
+async function loadDepartments() {
+  try {
+    const response = await axios.get('/api/departments');
+    departments = response.data.departments;
+    
+    const select = document.getElementById('departmentSelect');
+    select.innerHTML = '<option value="">部署を選んでください</option>';
+    departments.forEach(dept => {
+      select.innerHTML += `<option value="${dept.id}">${dept.name}</option>`;
+    });
+  } catch (error) {
+    console.error('部署読み込みエラー:', error);
+  }
+}
+
+// ユーザー読み込み
+async function loadUsers() {
+  try {
+    const response = await axios.get('/api/users');
+    users = response.data.users;
+  } catch (error) {
+    console.error('ユーザー読み込みエラー:', error);
+  }
+}
+
+// イベントリスナー設定
+function setupEventListeners() {
+  // 部署選択
+  document.getElementById('departmentSelect').addEventListener('change', (e) => {
+    const deptId = e.target.value;
+    const userSelect = document.getElementById('userSelect');
+    
+    if (deptId) {
+      const deptUsers = users.filter(u => u.department_id == deptId);
+      userSelect.innerHTML = '<option value="">ユーザーを選んでください</option>';
+      deptUsers.forEach(user => {
+        userSelect.innerHTML += `<option value="${user.id}">${user.name}</option>`;
+      });
+      userSelect.disabled = false;
+    } else {
+      userSelect.innerHTML = '<option value="">先に部署を選んでください</option>';
+      userSelect.disabled = true;
+    }
+    document.getElementById('loginBtn').disabled = true;
+  });
+  
+  // ユーザー選択
+  document.getElementById('userSelect').addEventListener('change', (e) => {
+    document.getElementById('loginBtn').disabled = !e.target.value;
+  });
+  
+  // ログインボタン
+  document.getElementById('loginBtn').addEventListener('click', login);
+  
+  // ログアウトボタン
+  document.getElementById('logoutBtn').addEventListener('click', logout);
+  
+  // 感謝送信ボタン
+  document.getElementById('sendThanksBtn').addEventListener('click', sendThanks);
+  
+  // タブ切り替え
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => switchTab(e.target.dataset.tab));
+  });
+  
+  // 月選択
+  document.getElementById('monthSelect').addEventListener('change', (e) => {
+    if (e.target.value) {
+      loadMonthlyReport(e.target.value);
+    }
+  });
+}
+
+// ログイン処理
+async function login() {
+  const userId = document.getElementById('userSelect').value;
+  if (!userId) return;
+  
+  try {
+    const response = await axios.get(`/api/users/${userId}`);
+    currentUser = response.data.user;
+    
+    // 日次シードリセット
+    await axios.post(`/api/users/${userId}/reset-seeds`);
+    const updatedResponse = await axios.get(`/api/users/${userId}`);
+    currentUser = updatedResponse.data.user;
+    
+    showMainScreen();
+  } catch (error) {
+    console.error('ログインエラー:', error);
+    alert('ログインに失敗しました');
+  }
+}
+
+// ログアウト処理
+function logout() {
+  currentUser = null;
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('mainScreen').classList.add('hidden');
+}
+
+// メイン画面表示
+async function showMainScreen() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('mainScreen').classList.remove('hidden');
+  
+  // ユーザー情報表示
+  const dept = departments.find(d => d.id == currentUser.department_id);
+  document.getElementById('currentUserName').textContent = `${currentUser.name}（${dept?.name || ''}）`;
+  document.getElementById('seedCount').textContent = currentUser.daily_seeds;
+  document.getElementById('totalPoints').textContent = currentUser.total_points;
+  
+  // マイツリー表示
+  updateMyTree();
+  
+  // 送り先選択肢を設定
+  setupReceiverSelect();
+  
+  // 初期タブ読み込み
+  await loadCompanyTree();
+  
+  // 月リスト読み込み
+  await loadMonthList();
+}
+
+// マイツリー更新
+function updateMyTree() {
+  const level = currentUser.tree_level || 1;
+  const points = currentUser.total_points || 0;
+  
+  const levelConfig = {
+    1: { emoji: '🌱', name: '芽', next: 100 },
+    2: { emoji: '🌿', name: '若葉', next: 300 },
+    3: { emoji: '🪴', name: '苗木', next: 600 },
+    4: { emoji: '🌳', name: '木', next: 1000 },
+    5: { emoji: '🎄', name: '大木', next: 1500 },
+    6: { emoji: '🏆', name: '神木', next: null }
+  };
+  
+  const config = levelConfig[level] || levelConfig[1];
+  const prevPoints = level > 1 ? levelConfig[level - 1]?.next || 0 : 0;
+  const progress = config.next ? Math.min(100, ((points - prevPoints) / (config.next - prevPoints)) * 100) : 100;
+  
+  document.getElementById('treeEmoji').textContent = config.emoji;
+  document.getElementById('treeLevelText').textContent = `Lv.${level} ${config.name}`;
+  document.getElementById('treeProgress').style.width = `${progress}%`;
+  document.getElementById('treeProgressText').textContent = config.next 
+    ? `次のレベルまで ${config.next - points}pt`
+    : '🎉 最高レベル達成！';
+}
+
+// 送り先選択設定
+function setupReceiverSelect() {
+  const select = document.getElementById('receiverSelect');
+  select.innerHTML = '<option value="">選択してください</option>';
+  
+  // 部署ごとにグループ化
+  departments.forEach(dept => {
+    const deptUsers = users.filter(u => u.department_id == dept.id && u.id != currentUser.id);
+    if (deptUsers.length > 0) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = dept.name;
+      deptUsers.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.id;
+        option.textContent = user.name;
+        optgroup.appendChild(option);
+      });
+      select.appendChild(optgroup);
+    }
+  });
+}
+
+// 感謝送信
+async function sendThanks() {
+  const receiverId = document.getElementById('receiverSelect').value;
+  const message = document.getElementById('messageInput').value.trim();
+  
+  if (!receiverId) {
+    alert('送り先を選択してください');
+    return;
+  }
+  
+  if (!message) {
+    alert('メッセージを入力してください');
+    return;
+  }
+  
+  if (currentUser.daily_seeds <= 0) {
+    alert('今日の種は使い切りました。明日また送れます！🌱');
+    return;
+  }
+  
+  try {
+    const response = await axios.post('/api/thanks/send', {
+      sender_id: currentUser.id,
+      receiver_id: parseInt(receiverId),
+      message: message
+    });
+    
+    // 成功メッセージ
+    alert(`🌸 ${response.data.receiver_name}さんに感謝を送りました！\n獲得ポイント: ${response.data.points}pt`);
+    
+    // ユーザー情報更新
+    const userResponse = await axios.get(`/api/users/${currentUser.id}`);
+    currentUser = userResponse.data.user;
+    
+    document.getElementById('seedCount').textContent = currentUser.daily_seeds;
+    document.getElementById('totalPoints').textContent = currentUser.total_points;
+    updateMyTree();
+    
+    // フォームリセット
+    document.getElementById('receiverSelect').value = '';
+    document.getElementById('messageInput').value = '';
+    
+    // タイムライン更新
+    if (currentView === 'timeline') {
+      loadTimeline();
+    }
+    
+    // 庭更新
+    if (currentView === 'garden') {
+      loadGarden();
+    }
+    
+  } catch (error) {
+    console.error('感謝送信エラー:', error);
+    alert(error.response?.data?.error || '送信に失敗しました');
+  }
+}
+
+// タブ切り替え
+function switchTab(tab) {
+  currentView = tab;
+  
+  // タブボタンの状態更新
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  
+  // タブコンテンツの表示切り替え
+  document.querySelectorAll('#tabContent > div').forEach(content => {
+    content.classList.add('hidden');
+  });
+  document.getElementById(`${tab}Tab`).classList.remove('hidden');
+  
+  // コンテンツ読み込み
+  switch (tab) {
+    case 'companytree': loadCompanyTree(); break;
+    case 'garden': loadGarden(); break;
+    case 'timeline': loadTimeline(); break;
+    case 'ranking': loadRanking(); break;
+    case 'monthly': break; // 月選択で読み込み
+  }
+}
+
+// カンパニーツリー読み込み
+async function loadCompanyTree() {
+  const container = document.getElementById('companyTreeDisplay');
+  container.innerHTML = '<div class="text-center py-8 text-green-600">🌲 読み込み中...</div>';
+  
+  try {
+    const response = await axios.get('/api/companytree/current');
+    const { tree, departments: deptStats, bridges } = response.data;
+    
+    container.innerHTML = `
+      <div class="grid md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl p-4 text-center">
+          <div class="text-3xl mb-2">🌳</div>
+          <div class="text-2xl font-bold text-green-700">${tree.tree_level}</div>
+          <div class="text-sm text-green-600">ツリーレベル</div>
+        </div>
+        <div class="bg-gradient-to-br from-pink-100 to-rose-100 rounded-xl p-4 text-center">
+          <div class="text-3xl mb-2">💝</div>
+          <div class="text-2xl font-bold text-pink-700">${tree.total_thanks_count}</div>
+          <div class="text-sm text-pink-600">今月の感謝数</div>
+        </div>
+        <div class="bg-gradient-to-br from-blue-100 to-sky-100 rounded-xl p-4 text-center">
+          <div class="text-3xl mb-2">🌉</div>
+          <div class="text-2xl font-bold text-blue-700">${tree.cross_department_count}</div>
+          <div class="text-sm text-blue-600">部署横断</div>
+        </div>
+      </div>
+      
+      <h4 class="text-lg font-bold text-green-700 mb-3">📊 部署別統計</h4>
+      <div class="space-y-3">
+        ${deptStats.map(dept => `
+          <div class="bg-white rounded-xl p-4 border-2 border-gray-100 hover:border-green-200 transition">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-4 h-4 rounded-full" style="background-color: ${dept.color}"></div>
+                <span class="font-semibold">${dept.name}</span>
+              </div>
+              <div class="flex gap-4 text-sm">
+                <span class="text-green-600">📤 ${dept.thanks_sent}</span>
+                <span class="text-blue-600">📥 ${dept.thanks_received}</span>
+                <span class="text-purple-600">⭐ ${dept.points_sent + dept.points_received}pt</span>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (error) {
+    console.error('カンパニーツリー読み込みエラー:', error);
+    container.innerHTML = '<div class="text-center py-8 text-red-500">読み込みに失敗しました</div>';
+  }
+}
+
+// 庭の読み込み
+async function loadGarden() {
+  const container = document.getElementById('gardenVisualization');
+  container.innerHTML = '<div class="text-center py-8 text-green-600">🏡 庭を読み込み中...</div>';
+  
+  try {
+    const yearMonth = getCurrentYearMonth();
+    const response = await axios.get(`/api/garden/state/${yearMonth}`);
+    
+    if (response.data && response.data.state) {
+      container.innerHTML = renderGarden(response.data);
+    } else {
+      container.innerHTML = `
+        <div class="text-center py-8">
+          <div class="text-6xl mb-4">🌱</div>
+          <p class="text-green-600">まだ庭がありません</p>
+          <p class="text-sm text-gray-500">感謝を送ると庭が育ちます！</p>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('庭の読み込みエラー:', error);
+    container.innerHTML = `
+      <div class="text-center py-8">
+        <div class="text-4xl mb-4">🌱</div>
+        <p class="text-green-600">庭データの読み込みに失敗しました</p>
+        <p class="text-sm text-gray-500">感謝を送ると庭が自動的に作成されます</p>
+      </div>
+    `;
+  }
+}
+
+// タイムライン読み込み
+async function loadTimeline() {
+  const container = document.getElementById('timelineDisplay');
+  container.innerHTML = '<div class="text-center py-8 text-green-600">📜 読み込み中...</div>';
+  
+  try {
+    const response = await axios.get('/api/thanks/timeline?limit=30');
+    const thanks = response.data.thanks;
+    
+    if (thanks.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-8">
+          <div class="text-4xl mb-4">💭</div>
+          <p class="text-green-600">まだ感謝メッセージがありません</p>
+        </div>
+      `;
+      return;
+    }
+    
+    container.innerHTML = `
+      <div class="space-y-4">
+        ${thanks.map(t => `
+          <div class="bg-white rounded-xl p-4 border-2 border-gray-100 hover:border-green-200 transition">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl">${t.is_cross_department ? '🌉' : '💝'}</div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-semibold" style="color: ${t.sender_color}">${t.sender_name}</span>
+                  <span class="text-gray-400">→</span>
+                  <span class="font-semibold" style="color: ${t.receiver_color}">${t.receiver_name}</span>
+                  <span class="text-sm text-green-600 ml-auto">+${t.points}pt</span>
+                </div>
+                <p class="text-gray-700">${t.message}</p>
+                <p class="text-xs text-gray-400 mt-2">${formatDate(t.created_at)}</p>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (error) {
+    console.error('タイムライン読み込みエラー:', error);
+    container.innerHTML = '<div class="text-center py-8 text-red-500">読み込みに失敗しました</div>';
+  }
+}
+
+// ランキング読み込み
+async function loadRanking() {
+  const container = document.getElementById('rankingDisplay');
+  container.innerHTML = '<div class="text-center py-8 text-green-600">🏆 読み込み中...</div>';
+  
+  try {
+    const [individualRes, deptRes] = await Promise.all([
+      axios.get('/api/rankings/individual?limit=10'),
+      axios.get('/api/rankings/department')
+    ]);
+    
+    const individuals = individualRes.data.rankings;
+    const depts = deptRes.data.rankings;
+    
+    container.innerHTML = `
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <h4 class="text-lg font-bold text-green-700 mb-3">👤 個人ランキング</h4>
+          <div class="space-y-2">
+            ${individuals.map((user, i) => `
+              <div class="flex items-center gap-3 bg-white rounded-xl p-3 border-2 ${i < 3 ? 'border-yellow-200' : 'border-gray-100'}">
+                <div class="text-xl font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
+                  ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                </div>
+                <div class="flex-1">
+                  <div class="font-semibold">${user.name}</div>
+                  <div class="text-xs text-gray-500">${user.department_name}</div>
+                </div>
+                <div class="text-green-600 font-bold">${user.total_points}pt</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div>
+          <h4 class="text-lg font-bold text-green-700 mb-3">🏢 部署ランキング</h4>
+          <div class="space-y-2">
+            ${depts.map((dept, i) => `
+              <div class="flex items-center gap-3 bg-white rounded-xl p-3 border-2 ${i < 3 ? 'border-yellow-200' : 'border-gray-100'}">
+                <div class="text-xl font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
+                  ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                </div>
+                <div class="flex-1 flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full" style="background-color: ${dept.color}"></div>
+                  <span class="font-semibold">${dept.name}</span>
+                </div>
+                <div class="text-green-600 font-bold">${dept.total_points}pt</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('ランキング読み込みエラー:', error);
+    container.innerHTML = '<div class="text-center py-8 text-red-500">読み込みに失敗しました</div>';
+  }
+}
+
+// 月リスト読み込み
+async function loadMonthList() {
+  try {
+    const response = await axios.get('/api/monthly/list');
+    const months = response.data.months;
+    
+    const select = document.getElementById('monthSelect');
+    select.innerHTML = '<option value="">月を選択...</option>';
+    months.forEach(m => {
+      select.innerHTML += `<option value="${m.year_month}">${m.year_month}</option>`;
+    });
+  } catch (error) {
+    console.error('月リスト読み込みエラー:', error);
+  }
+}
+
+// 月別レポート読み込み
+async function loadMonthlyReport(yearMonth) {
+  const container = document.getElementById('monthlyDisplay');
+  container.innerHTML = '<div class="text-center py-8 text-green-600">📊 読み込み中...</div>';
+  
+  try {
+    const response = await axios.get(`/api/monthly/report/${yearMonth}`);
+    const { tree, departments: depts, top_individuals, bridges } = response.data;
+    
+    container.innerHTML = `
+      <div class="grid md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl p-4 text-center">
+          <div class="text-2xl mb-1">💝</div>
+          <div class="text-2xl font-bold text-green-700">${tree.total_thanks_count}</div>
+          <div class="text-xs text-green-600">感謝数</div>
+        </div>
+        <div class="bg-gradient-to-br from-yellow-100 to-amber-100 rounded-xl p-4 text-center">
+          <div class="text-2xl mb-1">⭐</div>
+          <div class="text-2xl font-bold text-yellow-700">${tree.total_points}</div>
+          <div class="text-xs text-yellow-600">総ポイント</div>
+        </div>
+        <div class="bg-gradient-to-br from-blue-100 to-sky-100 rounded-xl p-4 text-center">
+          <div class="text-2xl mb-1">🌉</div>
+          <div class="text-2xl font-bold text-blue-700">${tree.cross_department_count}</div>
+          <div class="text-xs text-blue-600">部署横断</div>
+        </div>
+        <div class="bg-gradient-to-br from-purple-100 to-violet-100 rounded-xl p-4 text-center">
+          <div class="text-2xl mb-1">🌳</div>
+          <div class="text-2xl font-bold text-purple-700">${tree.tree_level}</div>
+          <div class="text-xs text-purple-600">ツリーLv</div>
+        </div>
+      </div>
+      
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <h4 class="text-lg font-bold text-green-700 mb-3">🏢 部署別</h4>
+          <div class="space-y-2">
+            ${depts.map(d => `
+              <div class="flex items-center justify-between bg-white rounded-lg p-3 border">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full" style="background-color: ${d.color}"></div>
+                  <span>${d.name}</span>
+                </div>
+                <span class="text-green-600 font-semibold">${d.points_sent + d.points_received}pt</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div>
+          <h4 class="text-lg font-bold text-green-700 mb-3">👑 トップ10</h4>
+          <div class="space-y-2">
+            ${top_individuals.slice(0, 10).map((u, i) => `
+              <div class="flex items-center gap-2 bg-white rounded-lg p-2 border">
+                <span class="w-6 text-center ${i < 3 ? 'font-bold' : ''}">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
+                <span class="flex-1">${u.name}</span>
+                <span class="text-green-600">${u.total_points}pt</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('月別レポート読み込みエラー:', error);
+    container.innerHTML = '<div class="text-center py-8 text-red-500">読み込みに失敗しました</div>';
+  }
+}
+
+// 日付フォーマット
+function formatDate(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now - date;
+  
+  if (diff < 60000) return 'たった今';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}時間前`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}日前`;
+  
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
