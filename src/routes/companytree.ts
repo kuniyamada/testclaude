@@ -61,10 +61,17 @@ app.get('/current', async (c) => {
       WHERE mds.year_month = ?
     `).bind(yearMonth).all();
     
-    // ブリッジ情報を取得
-    const bridges = await DB.prepare(`
-      SELECT * FROM department_bridges WHERE year_month = ?
-    `).bind(yearMonth).all();
+    // ブリッジ情報を取得（テーブルが存在しない場合は空配列）
+    let bridges: any[] = [];
+    try {
+      const bridgeResult = await DB.prepare(`
+        SELECT * FROM department_bridges WHERE year_month = ?
+      `).bind(yearMonth).all();
+      bridges = bridgeResult.results as any[];
+    } catch (bridgeError) {
+      // テーブルが存在しない場合は空配列
+      console.log('department_bridges table not available');
+    }
     
     const departments = (deptStats.results as any[]).map(stat => ({
       id: stat.department_id,
@@ -82,7 +89,7 @@ app.get('/current', async (c) => {
     return c.json({
       tree,
       departments,
-      bridges: bridges.results
+      bridges
     });
   } catch (error) {
     console.error('Failed to get company tree:', error);
@@ -128,28 +135,33 @@ app.post('/update-stats', async (c) => {
       WHERE year_month = ?
     `).bind(points, is_cross_department ? 1 : 0, yearMonth).run();
     
-    // 部署間ブリッジの更新（部署横断の場合）
+    // 部署間ブリッジの更新（部署横断の場合） - テーブルがある場合のみ
     if (is_cross_department) {
-      const fromDept = Math.min(sender_department_id, receiver_department_id);
-      const toDept = Math.max(sender_department_id, receiver_department_id);
-      
-      const existingBridge = await DB.prepare(`
-        SELECT * FROM department_bridges 
-        WHERE year_month = ? AND from_department_id = ? AND to_department_id = ?
-      `).bind(yearMonth, fromDept, toDept).first();
-      
-      if (existingBridge) {
-        await DB.prepare(`
-          UPDATE department_bridges 
-          SET thanks_count = thanks_count + 1,
-              updated_at = datetime('now')
+      try {
+        const fromDept = Math.min(sender_department_id, receiver_department_id);
+        const toDept = Math.max(sender_department_id, receiver_department_id);
+        
+        const existingBridge = await DB.prepare(`
+          SELECT * FROM department_bridges 
           WHERE year_month = ? AND from_department_id = ? AND to_department_id = ?
-        `).bind(yearMonth, fromDept, toDept).run();
-      } else {
-        await DB.prepare(`
-          INSERT INTO department_bridges (year_month, from_department_id, to_department_id, thanks_count)
-          VALUES (?, ?, ?, 1)
-        `).bind(yearMonth, fromDept, toDept).run();
+        `).bind(yearMonth, fromDept, toDept).first();
+        
+        if (existingBridge) {
+          await DB.prepare(`
+            UPDATE department_bridges 
+            SET thanks_count = thanks_count + 1,
+                updated_at = datetime('now')
+            WHERE year_month = ? AND from_department_id = ? AND to_department_id = ?
+          `).bind(yearMonth, fromDept, toDept).run();
+        } else {
+          await DB.prepare(`
+            INSERT INTO department_bridges (year_month, from_department_id, to_department_id, thanks_count)
+            VALUES (?, ?, ?, 1)
+          `).bind(yearMonth, fromDept, toDept).run();
+        }
+      } catch (bridgeError) {
+        // テーブルが存在しない場合は無視
+        console.log('department_bridges table not available for update');
       }
     }
     

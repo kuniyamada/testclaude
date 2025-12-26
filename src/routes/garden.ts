@@ -51,26 +51,33 @@ async function getGardenState(c: any, DB: D1Database, yearMonth: string) {
       `).bind(yearMonth).first();
     }
     
-    // 庭の要素を取得
-    const elements = await DB.prepare(`
-      SELECT * FROM garden_elements WHERE year_month = ?
-    `).bind(yearMonth).all();
+    // 庭の要素を取得（テーブルが存在しない場合は空配列）
+    let elements: any[] = [];
+    try {
+      const elementsResult = await DB.prepare(`
+        SELECT * FROM garden_elements WHERE year_month = ?
+      `).bind(yearMonth).all();
+      elements = elementsResult.results as any[];
+    } catch (elemError) {
+      console.log('garden_elements table not available');
+    }
     
-    // 住人を取得（ポイント上位5人）
+    // 住人を取得（ポイント上位5人）- total_received_points + total_sent_points を使用
     const residents = await DB.prepare(`
       SELECT 
-        u.id, u.name, u.total_points,
+        u.id, u.name, 
+        (u.total_received_points + u.total_sent_points) as total_points,
         d.name as department_name,
         d.color as department_color
       FROM users u
       JOIN departments d ON u.department_id = d.id
-      ORDER BY u.total_points DESC
+      ORDER BY (u.total_received_points + u.total_sent_points) DESC
       LIMIT 5
     `).all();
     
     return c.json({
       state,
-      elements: elements.results,
+      elements,
       residents: residents.results
     });
   } catch (error) {
