@@ -51,31 +51,39 @@ app.get('/report/:yearMonth', async (c) => {
       ORDER BY mds.points_sent + mds.points_received DESC
     `).bind(yearMonth).all();
     
-    // トップ個人ランキング
+    // トップ個人ランキング (use total_received_points + total_sent_points)
     const topIndividuals = await DB.prepare(`
       SELECT 
-        u.id, u.name, u.total_points,
+        u.id, u.name, 
+        (u.total_received_points + u.total_sent_points) as total_points,
         d.name as department_name,
         d.color as department_color
       FROM users u
       JOIN departments d ON u.department_id = d.id
-      ORDER BY u.total_points DESC
+      ORDER BY (u.total_received_points + u.total_sent_points) DESC
       LIMIT 10
     `).all();
     
-    // ブリッジ情報
-    const bridges = await DB.prepare(`
-      SELECT 
-        db.*,
-        d1.name as from_department_name,
-        d1.color as from_department_color,
-        d2.name as to_department_name,
-        d2.color as to_department_color
-      FROM department_bridges db
-      JOIN departments d1 ON db.from_department_id = d1.id
-      JOIN departments d2 ON db.to_department_id = d2.id
-      WHERE db.year_month = ?
-    `).bind(yearMonth).all();
+    // ブリッジ情報 - try to fetch, but return empty array if table doesn't exist
+    let bridges: any[] = [];
+    try {
+      const bridgeResult = await DB.prepare(`
+        SELECT 
+          db.*,
+          d1.name as from_department_name,
+          d1.color as from_department_color,
+          d2.name as to_department_name,
+          d2.color as to_department_color
+        FROM department_bridges db
+        JOIN departments d1 ON db.from_department_id = d1.id
+        JOIN departments d2 ON db.to_department_id = d2.id
+        WHERE db.year_month = ?
+      `).bind(yearMonth).all();
+      bridges = bridgeResult.results as any[];
+    } catch (bridgeError) {
+      // Table might not exist, just use empty array
+      console.log('department_bridges table not available:', bridgeError);
+    }
     
     const departments = (deptStats.results as any[]).map(stat => ({
       id: stat.department_id,
@@ -93,7 +101,7 @@ app.get('/report/:yearMonth', async (c) => {
       tree,
       departments,
       top_individuals: topIndividuals.results,
-      bridges: bridges.results
+      bridges
     });
   } catch (error) {
     console.error('Failed to get monthly report:', error);

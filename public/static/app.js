@@ -18,12 +18,17 @@ function getCurrentYearMonth() {
 
 // 初期化
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('🌱 Thanks Garden 初期化開始...');
   try {
+    console.log('📂 部署データ読み込み中...');
     await loadDepartments();
+    console.log('👥 ユーザーデータ読み込み中...');
     await loadUsers();
+    console.log('🎯 イベントリスナー設定中...');
     setupEventListeners();
+    console.log('✅ 初期化完了！');
   } catch (error) {
-    console.error('初期化エラー:', error);
+    console.error('❌ 初期化エラー:', error);
   }
 });
 
@@ -31,15 +36,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadDepartments() {
   try {
     const response = await axios.get('/api/departments');
-    departments = response.data.departments;
+    departments = response.data.departments || [];
+    console.log(`📂 部署データ: ${departments.length}件`);
     
     const select = document.getElementById('departmentSelect');
+    if (!select) {
+      console.error('❌ departmentSelect要素が見つかりません');
+      return;
+    }
     select.innerHTML = '<option value="">部署を選んでください</option>';
     departments.forEach(dept => {
       select.innerHTML += `<option value="${dept.id}">${dept.name}</option>`;
     });
+    console.log(`✅ 部署選択肢を設定しました`);
   } catch (error) {
-    console.error('部署読み込みエラー:', error);
+    console.error('❌ 部署読み込みエラー:', error);
   }
 }
 
@@ -636,8 +647,9 @@ async function loadRanking() {
       axios.get('/api/rankings/department')
     ]);
     
-    const individuals = individualRes.data.rankings;
-    const depts = deptRes.data.rankings;
+    // APIは ranking を返す（rankings ではない）
+    const individuals = individualRes.data.ranking || individualRes.data.rankings || [];
+    const depts = deptRes.data.ranking || deptRes.data.rankings || [];
     
     container.innerHTML = `
       <div class="grid md:grid-cols-2 gap-6">
@@ -650,10 +662,10 @@ async function loadRanking() {
                   ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                 </div>
                 <div class="flex-1">
-                  <div class="font-semibold">${user.name}</div>
+                  <div class="font-semibold">${user.user_name || user.name}</div>
                   <div class="text-xs text-gray-500">${user.department_name}</div>
                 </div>
-                <div class="text-green-600 font-bold">${user.total_points}pt</div>
+                <div class="text-green-600 font-bold">${user.points || user.total_points}pt</div>
               </div>
             `).join('')}
           </div>
@@ -668,8 +680,8 @@ async function loadRanking() {
                   ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                 </div>
                 <div class="flex-1 flex items-center gap-2">
-                  <div class="w-3 h-3 rounded-full" style="background-color: ${dept.color}"></div>
-                  <span class="font-semibold">${dept.name}</span>
+                  <div class="w-3 h-3 rounded-full" style="background-color: ${dept.department_color || dept.color}"></div>
+                  <span class="font-semibold">${dept.department_name || dept.name}</span>
                 </div>
                 <div class="text-green-600 font-bold">${dept.total_points}pt</div>
               </div>
