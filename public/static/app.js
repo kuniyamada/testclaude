@@ -223,187 +223,499 @@ function setupReceiverSelect() {
 }
 
 // ========================================
-// 🎰 ルーレットモーダル
+// 🎰 ルーレットモーダル（超派手なエフェクト版）
 // ========================================
-
-const ROULETTE_ITEMS = [
-  { multiplier: 1, label: 'ノーマル', emoji: '💚', color: '#A5D6A7', weight: 40 },
-  { multiplier: 1.5, label: 'ラッキー！', emoji: '🍀', color: '#95E1D3', weight: 30 },
-  { multiplier: 2, label: 'スーパー！', emoji: '✨', color: '#4ECDC4', weight: 20 },
-  { multiplier: 3, label: 'ウルトラ！', emoji: '🌟', color: '#FF6B6B', weight: 8 },
-  { multiplier: 5, label: 'ジャックポット！', emoji: '🎰', color: '#FFD700', weight: 2 }
-];
 
 // ルーレットモーダルを表示
 function showRouletteModal(result, callback) {
+  const multiplier = result.roulette.multiplier;
+  const isJackpot = multiplier >= 3;
+  const isBig = multiplier >= 2;
+  const isBonus = multiplier >= 1.5;
+  
+  // 結果に応じたメッセージ（大きく表示）
+  const celebrationConfig = {
+    1: { 
+      title: '感謝を届けました！',
+      subtitle: 'ありがとう💚',
+      bgColor: 'linear-gradient(135deg, #4ade80, #22c55e)',
+      textColor: '#166534'
+    },
+    1.5: { 
+      title: '🍀 ラッキー！',
+      subtitle: '1.5倍ボーナス！',
+      bgColor: 'linear-gradient(135deg, #95E1D3, #4ECDC4)',
+      textColor: '#047857'
+    },
+    2: { 
+      title: '✨ ダブル！',
+      subtitle: '2倍ボーナス！',
+      bgColor: 'linear-gradient(135deg, #4ECDC4, #22c55e)',
+      textColor: '#047857'
+    },
+    3: { 
+      title: '🌟 SUPER!',
+      subtitle: 'トリプルボーナス！！',
+      bgColor: 'linear-gradient(135deg, #FF6B6B, #ff8787)',
+      textColor: '#dc2626'
+    },
+    5: { 
+      title: '🎰 JACKPOT!!',
+      subtitle: '伝説の5倍ボーナス！！！',
+      bgColor: 'linear-gradient(135deg, #FFD700, #FFA500, #FFD700)',
+      textColor: '#d97706'
+    }
+  };
+  
+  const config = celebrationConfig[multiplier] || celebrationConfig[1];
+  
   // モーダルを作成
   const modal = document.createElement('div');
-  modal.id = 'rouletteModal';
+  modal.id = 'rouletteModalContainer';
+  
+  const spinRotation = 1440 + Math.random() * 720;
+  
   modal.innerHTML = `
-    <div style="
+    <style>
+      @keyframes roulette-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes roulette-pop-in { 
+        0% { transform: scale(0.3) rotate(-30deg); opacity: 0; }
+        60% { transform: scale(1.15) rotate(5deg); }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+      }
+      @keyframes roulette-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(${spinRotation}deg); }
+      }
+      @keyframes roulette-bounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+      }
+      @keyframes roulette-shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-8px) rotate(-3deg); }
+        75% { transform: translateX(8px) rotate(3deg); }
+      }
+      @keyframes mega-shake {
+        0%, 100% { transform: translateX(0) rotate(0deg); }
+        10% { transform: translateX(-15px) rotate(-5deg); }
+        20% { transform: translateX(15px) rotate(5deg); }
+        30% { transform: translateX(-15px) rotate(-5deg); }
+        40% { transform: translateX(15px) rotate(5deg); }
+        50% { transform: translateX(-10px) rotate(-3deg); }
+        60% { transform: translateX(10px) rotate(3deg); }
+        70% { transform: translateX(-5px) rotate(-1deg); }
+        80% { transform: translateX(5px) rotate(1deg); }
+        90% { transform: translateX(-2px); }
+      }
+      @keyframes roulette-glow {
+        0%, 100% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.6); }
+        50% { box-shadow: 0 0 60px rgba(255, 215, 0, 1), 0 0 100px rgba(255, 165, 0, 0.6); }
+      }
+      @keyframes confetti-fall {
+        0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(100vh) rotate(1080deg); opacity: 0; }
+      }
+      @keyframes float-up {
+        0% { transform: translateY(0) scale(1); opacity: 1; }
+        100% { transform: translateY(-150px) scale(2); opacity: 0; }
+      }
+      @keyframes rainbow-bg {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      @keyframes pulse-ring {
+        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+      }
+      @keyframes title-slam {
+        0% { transform: scale(0) translateY(-100px); opacity: 0; }
+        50% { transform: scale(1.5) translateY(0); }
+        70% { transform: scale(0.9); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      @keyframes subtitle-slide {
+        0% { transform: translateY(50px); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes points-explode {
+        0% { transform: scale(0); opacity: 0; }
+        50% { transform: scale(1.8); }
+        70% { transform: scale(0.85); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      @keyframes star-burst {
+        0% { transform: scale(0) rotate(0deg); opacity: 1; }
+        100% { transform: scale(3) rotate(180deg); opacity: 0; }
+      }
+      @keyframes sparkle {
+        0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+        50% { opacity: 1; transform: scale(1) rotate(180deg); }
+      }
+      @keyframes screen-flash {
+        0% { opacity: 0; }
+        50% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      .confetti {
+        position: absolute;
+        animation: confetti-fall 4s linear forwards;
+      }
+      .floating-emoji {
+        position: absolute;
+        animation: float-up 2s ease-out forwards;
+        pointer-events: none;
+      }
+      .sparkle-star {
+        position: absolute;
+        font-size: 24px;
+        animation: sparkle 1.5s ease-in-out infinite;
+        pointer-events: none;
+      }
+    </style>
+    
+    <div id="rouletteOverlay" style="
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0,0,0,0.85);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 9999;
-      animation: fadeIn 0.3s ease;
+      animation: roulette-fade-in 0.3s ease;
+      overflow: hidden;
     ">
-      <div style="
+      <!-- 画面フラッシュ（結果時） -->
+      <div id="screenFlash" style="
+        position: absolute;
+        inset: 0;
+        background: ${isJackpot ? '#FFD700' : isBig ? '#4ECDC4' : '#4ade80'};
+        opacity: 0;
+        pointer-events: none;
+      "></div>
+      
+      <!-- 紙吹雪コンテナ -->
+      <div id="confettiContainer" style="position: absolute; inset: 0; pointer-events: none;"></div>
+      
+      <!-- フローティング絵文字コンテナ -->
+      <div id="floatingContainer" style="position: absolute; inset: 0; pointer-events: none;"></div>
+      
+      <!-- スパークルコンテナ -->
+      <div id="sparkleContainer" style="position: absolute; inset: 0; pointer-events: none;"></div>
+      
+      <div id="rouletteCard" style="
         background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
-        border-radius: 24px;
-        padding: 32px;
-        max-width: 400px;
-        width: 90%;
+        border-radius: 28px;
+        padding: 28px;
+        max-width: 380px;
+        width: 92%;
         text-align: center;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        animation: popIn 0.5s ease;
+        box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+        animation: roulette-pop-in 0.5s ease;
+        position: relative;
       ">
-        <h2 style="font-size: 24px; color: #166534; margin-bottom: 16px;">
-          🎰 ボーナスルーレット！
-        </h2>
-        
-        <!-- ルーレットホイール -->
-        <div id="rouletteWheel" style="
-          width: 200px;
-          height: 200px;
-          margin: 20px auto;
-          border-radius: 50%;
-          background: conic-gradient(
-            #A5D6A7 0deg 144deg,
-            #95E1D3 144deg 252deg,
-            #4ECDC4 252deg 324deg,
-            #FF6B6B 324deg 352.8deg,
-            #FFD700 352.8deg 360deg
-          );
-          position: relative;
-          animation: spin 3s cubic-bezier(0.17, 0.67, 0.12, 0.99) forwards;
-          box-shadow: 0 0 20px rgba(0,0,0,0.2), inset 0 0 30px rgba(255,255,255,0.3);
-        ">
-          <!-- 中央の円 -->
-          <div style="
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 60px;
-            height: 60px;
-            background: white;
+        <!-- スピン中の表示 -->
+        <div id="spinningPhase">
+          <h2 style="font-size: 24px; color: #166534; margin-bottom: 16px; animation: roulette-shake 0.4s infinite;">
+            🎰 ボーナスルーレット！
+          </h2>
+          
+          <div id="rouletteWheel" style="
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-          ">🎲</div>
+            background: conic-gradient(
+              #A5D6A7 0deg 144deg,
+              #95E1D3 144deg 252deg,
+              #4ECDC4 252deg 324deg,
+              #FF6B6B 324deg 352.8deg,
+              #FFD700 352.8deg 360deg
+            );
+            position: relative;
+            animation: roulette-spin 2.8s cubic-bezier(0.15, 0.85, 0.25, 1) forwards;
+            box-shadow: 0 0 40px rgba(0,0,0,0.3), inset 0 0 50px rgba(255,255,255,0.4);
+            border: 5px solid #22c55e;
+          ">
+            <!-- ルーレットのテキスト -->
+            <div style="position: absolute; top: 20%; left: 50%; transform: translateX(-50%) rotate(72deg); color: white; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">1x</div>
+            <div style="position: absolute; top: 50%; right: 15%; transform: translateY(-50%) rotate(162deg); color: white; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">1.5x</div>
+            <div style="position: absolute; bottom: 25%; right: 25%; transform: rotate(252deg); color: white; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">2x</div>
+            <div style="position: absolute; bottom: 20%; left: 20%; transform: rotate(330deg); color: white; font-weight: bold; font-size: 12px; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">3x</div>
+            <div style="position: absolute; top: 25%; left: 15%; transform: rotate(356deg); color: #8B4513; font-weight: bold; font-size: 11px; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">5x</div>
+            
+            <div style="
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              width: 60px;
+              height: 60px;
+              background: white;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 28px;
+              box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+              animation: roulette-bounce 0.3s infinite;
+            ">🎲</div>
+          </div>
+          
+          <div style="
+            width: 0; height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid #166534;
+            margin: -12px auto 0;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+          "></div>
+          
+          <p style="margin-top: 20px; color: #666; font-size: 16px; animation: roulette-bounce 0.5s infinite;">
+            ドキドキ...💓 何が出るかな？
+          </p>
         </div>
         
-        <!-- ポインター -->
-        <div style="
-          width: 0;
-          height: 0;
-          border-left: 15px solid transparent;
-          border-right: 15px solid transparent;
-          border-top: 25px solid #166534;
-          margin: -10px auto 20px;
-        "></div>
-        
-        <!-- 結果表示（最初は非表示） -->
-        <div id="rouletteResult" style="display: none;">
-          <div id="resultEmoji" style="font-size: 64px; margin-bottom: 12px; animation: bounce 0.5s ease infinite;"></div>
-          <div id="resultLabel" style="font-size: 28px; font-weight: bold; margin-bottom: 8px;"></div>
-          <div id="resultMultiplier" style="font-size: 20px; color: #666; margin-bottom: 16px;"></div>
+        <!-- 結果表示 -->
+        <div id="resultPhase" style="display: none;">
+          <!-- パルスリング -->
+          <div id="pulseRings" style="position: absolute; top: 50%; left: 50%; pointer-events: none; z-index: 0;"></div>
+          
+          <!-- メインタイトル（でかい！） -->
+          <div id="resultTitle" style="
+            font-size: ${isJackpot ? '42px' : isBig ? '36px' : '32px'};
+            font-weight: 900;
+            margin-bottom: 8px;
+            color: ${config.textColor};
+            animation: title-slam 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            text-shadow: ${isJackpot ? '0 0 30px rgba(255,215,0,0.8), 0 4px 8px rgba(0,0,0,0.2)' : '0 4px 8px rgba(0,0,0,0.1)'};
+            position: relative;
+            z-index: 1;
+          ">${config.title}</div>
+          
+          <!-- サブタイトル -->
+          <div id="resultSubtitle" style="
+            font-size: ${isBig ? '22px' : '18px'};
+            color: ${config.textColor};
+            margin-bottom: 16px;
+            animation: subtitle-slide 0.5s ease 0.3s both;
+            position: relative;
+            z-index: 1;
+          ">${config.subtitle}</div>
+          
+          <!-- 絵文字（でかい！バウンス） -->
+          <div id="resultEmoji" style="
+            font-size: ${isJackpot ? '100px' : '80px'}; 
+            margin: 16px 0;
+            animation: title-slam 0.6s ease 0.2s both, roulette-bounce 0.8s infinite 0.8s;
+            filter: drop-shadow(0 8px 16px rgba(0,0,0,0.3));
+            position: relative;
+            z-index: 1;
+          ">${result.roulette.emoji}</div>
+          
+          <!-- 部署横断ボーナス表示 -->
+          ${result.is_cross_department ? `
+            <div style="
+              background: linear-gradient(135deg, #60a5fa, #3b82f6);
+              color: white;
+              padding: 8px 20px;
+              border-radius: 20px;
+              font-size: 14px;
+              font-weight: bold;
+              display: inline-block;
+              margin-bottom: 16px;
+              animation: subtitle-slide 0.5s ease 0.4s both;
+              box-shadow: 0 4px 15px rgba(59,130,246,0.4);
+            ">
+              🌉 部署横断ボーナス！
+            </div>
+          ` : ''}
+          
+          <!-- ポイント表示（超でかい！爆発アニメ） -->
           <div style="
-            background: linear-gradient(135deg, #4ade80, #22c55e);
-            border-radius: 16px;
-            padding: 16px;
+            background: ${config.bgColor};
+            background-size: 200% 200%;
+            animation: ${isJackpot ? 'rainbow-bg 2s ease infinite,' : ''} points-explode 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.5s both;
+            border-radius: 24px;
+            padding: 24px;
             color: white;
+            box-shadow: ${isJackpot ? '0 0 50px rgba(255,215,0,0.7)' : '0 8px 30px rgba(34,197,94,0.4)'};
+            position: relative;
+            z-index: 1;
           ">
-            <div style="font-size: 14px; opacity: 0.9;">獲得ポイント</div>
-            <div id="resultPoints" style="font-size: 36px; font-weight: bold;"></div>
+            <div style="font-size: 16px; opacity: 0.9; margin-bottom: 8px;">🎁 獲得ポイント</div>
+            <div id="resultPoints" style="
+              font-size: ${isJackpot ? '64px' : '56px'}; 
+              font-weight: 900;
+              text-shadow: 0 4px 8px rgba(0,0,0,0.2);
+              line-height: 1;
+            ">+${result.points}pt</div>
+            <div style="font-size: 14px; opacity: 0.8; margin-top: 8px;">
+              基本 ${result.base_points}pt × <span style="font-weight: bold;">${multiplier}倍</span>
+            </div>
           </div>
+          
+          <!-- 閉じるボタン -->
           <button id="rouletteCloseBtn" style="
-            margin-top: 20px;
-            background: linear-gradient(145deg, #4ade80, #22c55e);
+            margin-top: 24px;
+            background: ${isJackpot ? 'linear-gradient(145deg, #333, #555)' : 'linear-gradient(145deg, #4ade80, #22c55e)'};
             border: none;
-            border-radius: 12px;
+            border-radius: 18px;
             color: white;
             font-weight: bold;
-            padding: 12px 32px;
-            font-size: 16px;
+            padding: 16px 50px;
+            font-size: 20px;
             cursor: pointer;
-            transition: transform 0.2s;
-          ">OK！</button>
+            transition: all 0.2s;
+            animation: subtitle-slide 0.5s ease 0.8s both;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            position: relative;
+            z-index: 1;
+          " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            ${isJackpot ? '🎉 やったー！' : isBig ? '✨ すごい！' : '💚 ありがとう！'}
+          </button>
         </div>
       </div>
     </div>
-    
-    <style>
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      @keyframes popIn {
-        from { transform: scale(0.8); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
-      }
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(${1440 + getRouletteAngle(result.roulette.multiplier)}deg); }
-      }
-      @keyframes bounce {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-      }
-      #rouletteCloseBtn:hover {
-        transform: scale(1.05);
-      }
-    </style>
   `;
   
   document.body.appendChild(modal);
   
-  // 3秒後に結果を表示
+  // 2.8秒後に結果を表示
   setTimeout(() => {
-    document.getElementById('rouletteWheel').style.animation = 'none';
-    document.getElementById('rouletteResult').style.display = 'block';
-    document.getElementById('resultEmoji').textContent = result.roulette.emoji;
-    document.getElementById('resultLabel').textContent = result.roulette.label;
-    document.getElementById('resultLabel').style.color = result.roulette.color;
-    document.getElementById('resultMultiplier').textContent = `${result.roulette.multiplier}x ボーナス！`;
-    document.getElementById('resultPoints').textContent = `+${result.points}pt`;
+    // 画面フラッシュ
+    const flash = document.getElementById('screenFlash');
+    flash.style.animation = 'screen-flash 0.3s ease';
     
-    // 効果音代わりにバイブレーション（対応端末のみ）
-    if (navigator.vibrate) {
-      navigator.vibrate([100, 50, 100, 50, 200]);
+    // 画面を揺らす（大当たり時）
+    if (isBig) {
+      document.getElementById('rouletteCard').style.animation = 'mega-shake 0.8s ease';
     }
-  }, 3000);
-  
-  // 閉じるボタン
-  setTimeout(() => {
-    document.getElementById('rouletteCloseBtn').addEventListener('click', () => {
+    
+    // フェーズ切り替え
+    document.getElementById('spinningPhase').style.display = 'none';
+    document.getElementById('resultPhase').style.display = 'block';
+    
+    // パルスリング生成
+    createPulseRings(result.roulette.color, multiplier);
+    
+    // 紙吹雪を生成（ボーナス時）
+    if (isBonus) {
+      createConfetti(multiplier);
+    }
+    
+    // スパークルを生成
+    createSparkles(multiplier);
+    
+    // フローティング絵文字を生成
+    createFloatingEmojis(result.roulette.emoji, multiplier);
+    
+    // バイブレーション
+    if (navigator.vibrate) {
+      if (isJackpot) {
+        navigator.vibrate([100, 50, 100, 50, 200, 100, 300, 100, 500]);
+      } else if (isBig) {
+        navigator.vibrate([100, 50, 150, 50, 200]);
+      } else if (isBonus) {
+        navigator.vibrate([80, 40, 100]);
+      } else {
+        navigator.vibrate([50, 30, 50]);
+      }
+    }
+    
+    // 音を鳴らす代わりに追加エフェクト（2秒後にさらに絵文字）
+    if (isJackpot) {
+      setTimeout(() => createFloatingEmojis('🎊', 5), 500);
+      setTimeout(() => createFloatingEmojis('🌟', 5), 1000);
+    }
+    
+    // 閉じるボタン
+    document.getElementById('rouletteCloseBtn').onclick = () => {
       modal.remove();
       if (callback) callback();
-    });
-  }, 3100);
+    };
+  }, 2800);
 }
 
-// 倍率に応じたルーレットの角度を計算
-function getRouletteAngle(multiplier) {
-  // 各セクションの角度
-  // 1x: 0-144deg, 1.5x: 144-252deg, 2x: 252-324deg, 3x: 324-352.8deg, 5x: 352.8-360deg
-  const angles = {
-    1: 72,      // 0-144の中央
-    1.5: 198,   // 144-252の中央
-    2: 288,     // 252-324の中央
-    3: 338,     // 324-352.8の中央
-    5: 356      // 352.8-360の中央
-  };
-  return angles[multiplier] || 72;
+// パルスリングを生成
+function createPulseRings(color, multiplier) {
+  const container = document.getElementById('pulseRings');
+  const ringCount = multiplier >= 5 ? 5 : multiplier >= 2 ? 3 : 1;
+  
+  for (let i = 0; i < ringCount; i++) {
+    const ring = document.createElement('div');
+    ring.style.cssText = `
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      border: 4px solid ${color};
+      border-radius: 50%;
+      animation: pulse-ring 1.5s ease-out infinite ${i * 0.3}s;
+    `;
+    container.appendChild(ring);
+  }
+}
+
+// 紙吹雪を生成
+function createConfetti(multiplier) {
+  const container = document.getElementById('confettiContainer');
+  const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#fd79a8', '#a29bfe', '#FFD700', '#ff9ff3'];
+  const shapes = ['■', '●', '▲', '★', '♦', '❤'];
+  const count = multiplier >= 5 ? 100 : multiplier >= 2 ? 60 : 30;
+  
+  for (let i = 0; i < count; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.textContent = shapes[Math.floor(Math.random() * shapes.length)];
+    confetti.style.left = Math.random() * 100 + '%';
+    confetti.style.color = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.fontSize = (10 + Math.random() * 20) + 'px';
+    confetti.style.animationDelay = Math.random() * 1.5 + 's';
+    confetti.style.animationDuration = (3 + Math.random() * 3) + 's';
+    container.appendChild(confetti);
+  }
+}
+
+// スパークルを生成
+function createSparkles(multiplier) {
+  const container = document.getElementById('sparkleContainer');
+  const count = multiplier >= 5 ? 15 : multiplier >= 2 ? 8 : 4;
+  
+  for (let i = 0; i < count; i++) {
+    const sparkle = document.createElement('div');
+    sparkle.className = 'sparkle-star';
+    sparkle.textContent = '✨';
+    sparkle.style.left = (10 + Math.random() * 80) + '%';
+    sparkle.style.top = (10 + Math.random() * 80) + '%';
+    sparkle.style.animationDelay = Math.random() * 2 + 's';
+    container.appendChild(sparkle);
+  }
+}
+
+// フローティング絵文字を生成
+function createFloatingEmojis(emoji, multiplier) {
+  const container = document.getElementById('floatingContainer');
+  const emojis = ['✨', '🌟', '💫', '⭐', emoji, '🎉', '🎊', '💝', '🌸'];
+  const count = multiplier >= 5 ? 25 : multiplier >= 2 ? 15 : 8;
+  
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const floater = document.createElement('div');
+      floater.className = 'floating-emoji';
+      floater.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      floater.style.left = (10 + Math.random() * 80) + '%';
+      floater.style.top = (40 + Math.random() * 40) + '%';
+      floater.style.fontSize = (20 + Math.random() * 20) + 'px';
+      floater.style.animationDuration = (1.5 + Math.random()) + 's';
+      container.appendChild(floater);
+      
+      setTimeout(() => floater.remove(), 2500);
+    }, i * 100);
+  }
 }
 
 // ========================================
