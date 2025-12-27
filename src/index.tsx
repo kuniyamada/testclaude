@@ -48,10 +48,23 @@ app.get('/', (c) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Thanks Garden">
   <meta name="theme-color" content="#22c55e">
+  <meta name="description" content="社内感謝アプリ - みんなの感謝で庭を育てよう">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Thanks Garden - 社内感謝アプリ</title>
+  
+  <!-- Favicon -->
   <link rel="icon" type="image/png" href="/static/favicon.png">
-  <link rel="apple-touch-icon" href="/static/favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png">
+  
+  <!-- Apple Touch Icons (iOS) -->
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/static/app-icon-192.png">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/static/manifest.json">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">

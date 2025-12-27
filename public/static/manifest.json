@@ -1,0 +1,26 @@
+{
+  "name": "Thanks Garden",
+  "short_name": "Thanks Garden",
+  "description": "社内感謝アプリ - みんなの感謝で庭を育てよう",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0fdf4",
+  "theme_color": "#22c55e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "social"],
+  "lang": "ja"
+}
