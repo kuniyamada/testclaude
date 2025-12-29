@@ -40,10 +40,10 @@ async function getGardenState(c: any, DB: D1Database, yearMonth: string) {
     `).bind(yearMonth).first();
     
     if (!state) {
-      // 新しい月の庭を作成
+      // 新しい月の庭を作成（実際のテーブル構造に合わせる）
       await DB.prepare(`
-        INSERT INTO garden_state (year_month, garden_level, garden_size, tree_count, flower_beds, mushroom_count, has_pond, has_fountain, has_gazebo, has_building, residents_count, wildlife_count, total_thanks_count)
-        VALUES (?, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        INSERT INTO garden_state (year_month, garden_level, garden_size, tree_count, flower_beds, has_pond, has_fountain, has_gazebo, has_building, residents_count, wildlife_count)
+        VALUES (?, 1, 3, 1, 0, 0, 0, 0, 0, 0, 0)
       `).bind(yearMonth).run();
       
       state = await DB.prepare(`
@@ -101,11 +101,13 @@ app.post('/update', async (c) => {
     const totalThanks = thanksResult?.count || 0;
     
     // 感謝数に基づいてレベルを計算
+    // テーブル構造: garden_level, garden_size, tree_count, flower_beds,
+    //              has_pond, has_fountain, has_gazebo, has_building,
+    //              residents_count, wildlife_count
     let gardenLevel = 1;
     let gardenSize = 3;
     let treeCount = 0;
     let flowerBeds = 0;
-    let mushroomCount = 0;
     let hasPond = 0;
     let hasFountain = 0;
     let hasGazebo = 0;
@@ -113,50 +115,45 @@ app.post('/update', async (c) => {
     
     if (totalThanks >= 150) {
       gardenLevel = 6; gardenSize = 13;
-      treeCount = 8; flowerBeds = 6; mushroomCount = 10;
+      treeCount = 8; flowerBeds = 6;
       hasPond = 1; hasFountain = 1; hasGazebo = 1; hasBuilding = 1;
     } else if (totalThanks >= 100) {
       gardenLevel = 5; gardenSize = 11;
-      treeCount = 6; flowerBeds = 5; mushroomCount = 8;
+      treeCount = 6; flowerBeds = 5;
       hasPond = 1; hasFountain = 1; hasGazebo = 1;
     } else if (totalThanks >= 60) {
       gardenLevel = 4; gardenSize = 9;
-      treeCount = 4; flowerBeds = 4; mushroomCount = 6;
+      treeCount = 4; flowerBeds = 4;
       hasPond = 1; hasFountain = 1;
     } else if (totalThanks >= 30) {
       gardenLevel = 3; gardenSize = 7;
-      treeCount = 3; flowerBeds = 3; mushroomCount = 4;
+      treeCount = 3; flowerBeds = 3;
       hasPond = 1;
     } else if (totalThanks >= 10) {
       gardenLevel = 2; gardenSize = 5;
-      treeCount = 2; flowerBeds = 2; mushroomCount = 2;
+      treeCount = 2; flowerBeds = 2;
     } else {
       gardenLevel = 1; gardenSize = 3;
-      treeCount = 1; flowerBeds = 0; mushroomCount = 0;
+      treeCount = 1; flowerBeds = 0;
     }
     
-    // 庭の状態を更新（total_thanks_countカラムがない場合に備えて）
-    try {
-      await DB.prepare(`
-        UPDATE garden_state 
-        SET garden_level = ?,
-            garden_size = ?,
-            tree_count = ?,
-            flower_beds = ?,
-            mushroom_count = ?,
-            has_pond = ?,
-            has_fountain = ?,
-            has_gazebo = ?,
-            has_building = ?,
-            updated_at = datetime('now')
-        WHERE year_month = ?
-      `).bind(
-        gardenLevel, gardenSize, treeCount, flowerBeds, mushroomCount,
-        hasPond, hasFountain, hasGazebo, hasBuilding, yearMonth
-      ).run();
-    } catch (updateError) {
-      console.error('Garden update error:', updateError);
-    }
+    // 庭の状態を更新（実際のテーブル構造に合わせる）
+    await DB.prepare(`
+      UPDATE garden_state 
+      SET garden_level = ?,
+          garden_size = ?,
+          tree_count = ?,
+          flower_beds = ?,
+          has_pond = ?,
+          has_fountain = ?,
+          has_gazebo = ?,
+          has_building = ?,
+          updated_at = datetime('now')
+      WHERE year_month = ?
+    `).bind(
+      gardenLevel, gardenSize, treeCount, flowerBeds,
+      hasPond, hasFountain, hasGazebo, hasBuilding, yearMonth
+    ).run();
     
     return c.json({ 
       message: '庭を更新しました',
@@ -164,7 +161,6 @@ app.post('/update', async (c) => {
       garden_size: gardenSize,
       tree_count: treeCount,
       flower_beds: flowerBeds,
-      mushroom_count: mushroomCount,
       total_thanks_count: totalThanks
     });
   } catch (error) {
