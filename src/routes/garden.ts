@@ -135,25 +135,28 @@ app.post('/update', async (c) => {
       treeCount = 1; flowerBeds = 0; mushroomCount = 0;
     }
     
-    // 庭の状態を更新
-    await DB.prepare(`
-      UPDATE garden_state 
-      SET garden_level = ?,
-          garden_size = ?,
-          tree_count = ?,
-          flower_beds = ?,
-          mushroom_count = ?,
-          has_pond = ?,
-          has_fountain = ?,
-          has_gazebo = ?,
-          has_building = ?,
-          total_thanks_count = ?,
-          updated_at = datetime('now')
-      WHERE year_month = ?
-    `).bind(
-      gardenLevel, gardenSize, treeCount, flowerBeds, mushroomCount,
-      hasPond, hasFountain, hasGazebo, hasBuilding, totalThanks, yearMonth
-    ).run();
+    // 庭の状態を更新（total_thanks_countカラムがない場合に備えて）
+    try {
+      await DB.prepare(`
+        UPDATE garden_state 
+        SET garden_level = ?,
+            garden_size = ?,
+            tree_count = ?,
+            flower_beds = ?,
+            mushroom_count = ?,
+            has_pond = ?,
+            has_fountain = ?,
+            has_gazebo = ?,
+            has_building = ?,
+            updated_at = datetime('now')
+        WHERE year_month = ?
+      `).bind(
+        gardenLevel, gardenSize, treeCount, flowerBeds, mushroomCount,
+        hasPond, hasFountain, hasGazebo, hasBuilding, yearMonth
+      ).run();
+    } catch (updateError) {
+      console.error('Garden update error:', updateError);
+    }
     
     return c.json({ 
       message: '庭を更新しました',
