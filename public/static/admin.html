@@ -632,16 +632,40 @@
     }
     
     function confirmResetPoints() {
-      if (!confirm('⚠️ 全ユーザーのポイントをリセットしますか？\nこの操作は取り消せません。')) return;
-      if (!confirm('本当によろしいですか？')) return;
-      resetAllPoints();
+      // 選択肢を提供
+      const choice = confirm(
+        '⚠️ ポイントリセットの方法を選択してください\n\n' +
+        '【OK】感謝データも削除（ランキングもリセット）\n' +
+        '【キャンセル】ユーザーの累計ポイントのみリセット'
+      );
+      
+      const deleteThanks = choice;
+      
+      const confirmMsg = deleteThanks 
+        ? '⚠️ 全ユーザーのポイントと感謝データをリセットします。\nランキングもリセットされます。\n\nこの操作は取り消せません。本当によろしいですか？'
+        : '⚠️ 全ユーザーの累計ポイントをリセットします。\n（感謝データとランキングは残ります）\n\nこの操作は取り消せません。本当によろしいですか？';
+      
+      if (!confirm(confirmMsg)) return;
+      
+      resetAllPoints(deleteThanks);
     }
     
-    async function resetAllPoints() {
+    async function resetAllPoints(deleteThanks = false) {
       try {
-        await axios.post('/api/admin/reset-points', { admin_user_id: adminUser.user_id });
-        alert('全ユーザーのポイントをリセットしました');
+        await axios.post('/api/admin/reset-points', { 
+          admin_user_id: adminUser.user_id,
+          delete_thanks: deleteThanks
+        });
+        
+        const msg = deleteThanks 
+          ? '全ユーザーのポイントと感謝データをリセットしました（ランキングもリセット）'
+          : '全ユーザーの累計ポイントをリセットしました';
+        alert(msg);
+        
         loadDashboard();
+        if (deleteThanks) {
+          loadThanks();
+        }
       } catch (error) {
         alert(error.response?.data?.error || 'リセットに失敗しました');
       }

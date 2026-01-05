@@ -429,22 +429,53 @@ app.get('/logs', async (c) => {
 });
 
 // ポイントリセット（全ユーザー）
+// delete_thanks: true の場合、感謝データも削除（ランキングもリセット）
 app.post('/reset-points', async (c) => {
   const { DB } = c.env;
-  const { admin_user_id } = await c.req.json();
+  const { admin_user_id, delete_thanks } = await c.req.json();
   
   if (!await isAdmin(DB, admin_user_id)) {
     return c.json({ error: '管理者権限がありません' }, 403);
   }
   
   try {
+    // ユーザーの累計ポイントをリセット
     await DB.prepare(`
       UPDATE users SET total_received_points = 0, total_sent_points = 0, tree_level = 1
     `).run();
     
-    await logAction(DB, admin_user_id, 'RESET_ALL_POINTS', null, null, '全ユーザーのポイントをリセット');
+    let message = '全ユーザーのポイントをリセットしました';
+    let logDetails = '全ユーザーのポイントをリセット';
     
-    return c.json({ success: true, message: '全ユーザーのポイントをリセットしました' });
+    // 感謝データも削除する場合
+    if (delete_thanks) {
+      await DB.prepare(`DELETE FROM thanks`).run();
+      
+      // 月別統計もリセット
+      await DB.prepare(`
+        UPDATE monthly_company_tree 
+        SET total_thanks_count = 0, total_points = 0, cross_department_count = 0, tree_level = 1
+      `).run();
+      
+      await DB.prepare(`
+        UPDATE monthly_department_stats 
+        SET thanks_sent = 0, thanks_received = 0, points_sent = 0, points_received = 0, 
+            cross_department_sent = 0, branch_level = 0
+      `).run();
+      
+      await DB.prepare(`
+        UPDATE garden_state 
+        SET garden_level = 1, garden_size = 3, tree_count = 1, flower_beds = 0,
+            has_pond = 0, has_fountain = 0, has_gazebo = 0, has_building = 0
+      `).run();
+      
+      message = '全ユーザーのポイントと感謝データをリセットしました（ランキングもリセット）';
+      logDetails = '全ユーザーのポイントと感謝データをリセット';
+    }
+    
+    await logAction(DB, admin_user_id, 'RESET_ALL_POINTS', null, null, logDetails);
+    
+    return c.json({ success: true, message });
   } catch (error) {
     console.error('Reset points error:', error);
     return c.json({ error: 'ポイントリセットエラー' }, 500);
