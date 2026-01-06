@@ -597,16 +597,16 @@ function showRouletteModal(result, callback) {
             </div>
           </div>
           
-          <!-- 閉じるボタン -->
+          <!-- 戻るボタン -->
           <button id="rouletteCloseBtn" style="
             margin-top: 24px;
-            background: ${isJackpot ? 'linear-gradient(145deg, #333, #555)' : 'linear-gradient(145deg, #4ade80, #22c55e)'};
+            background: linear-gradient(145deg, #6b7280, #4b5563);
             border: none;
             border-radius: 18px;
             color: white;
             font-weight: bold;
             padding: 16px 50px;
-            font-size: 20px;
+            font-size: 18px;
             cursor: pointer;
             transition: all 0.2s;
             animation: subtitle-slide 0.5s ease 0.8s both;
@@ -614,7 +614,7 @@ function showRouletteModal(result, callback) {
             position: relative;
             z-index: 1;
           " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-            ${isJackpot ? '🎉 やったー！' : isBig ? '✨ すごい！' : '💚 ありがとう！'}
+            ← 戻る
           </button>
         </div>
       </div>
