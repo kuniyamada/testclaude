@@ -1010,7 +1010,7 @@ async function loadRanking() {
   
   try {
     const [individualRes, deptRes] = await Promise.all([
-      axios.get('/api/rankings/individual?limit=10'),
+      axios.get('/api/rankings/individual?limit=100'),
       axios.get('/api/rankings/department')
     ]);
     
@@ -1021,20 +1021,24 @@ async function loadRanking() {
     container.innerHTML = `
       <div class="grid md:grid-cols-2 gap-6">
         <div>
-          <h4 class="text-lg font-bold text-green-700 mb-3">👤 個人ランキング</h4>
-          <div class="space-y-2">
+          <h4 class="text-lg font-bold text-green-700 mb-3">👤 個人ランキング <span class="text-sm font-normal text-gray-500">(${individuals.length}名)</span></h4>
+          <div class="space-y-2 max-h-96 overflow-y-auto pr-1">
             ${individuals.map((user, i) => `
               <div class="flex items-center gap-3 bg-white rounded-xl p-3 border-2 ${i < 3 ? 'border-yellow-200' : 'border-gray-100'}">
-                <div class="text-xl font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
+                <div class="w-8 text-center text-lg font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
                   ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                 </div>
-                <div class="flex-1">
-                  <div class="font-semibold">${user.user_name || user.name}</div>
-                  <div class="text-xs text-gray-500">${user.department_name}</div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold truncate">${user.user_name || user.name}</div>
+                  <div class="text-xs text-gray-500 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full inline-block" style="background-color: ${user.department_color}"></span>
+                    ${user.department_name}
+                  </div>
                 </div>
-                <div class="text-green-600 font-bold">${user.points || user.total_points}pt</div>
+                <div class="text-green-600 font-bold whitespace-nowrap">${user.points || user.total_points}pt</div>
               </div>
             `).join('')}
+            ${individuals.length === 0 ? '<div class="text-center py-4 text-gray-500">まだデータがありません</div>' : ''}
           </div>
         </div>
         
@@ -1043,14 +1047,14 @@ async function loadRanking() {
           <div class="space-y-2">
             ${depts.map((dept, i) => `
               <div class="flex items-center gap-3 bg-white rounded-xl p-3 border-2 ${i < 3 ? 'border-yellow-200' : 'border-gray-100'}">
-                <div class="text-xl font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
+                <div class="w-8 text-center text-lg font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
                   ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                 </div>
                 <div class="flex-1 flex items-center gap-2">
-                  <div class="w-3 h-3 rounded-full" style="background-color: ${dept.department_color || dept.color}"></div>
+                  <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${dept.department_color || dept.color}"></div>
                   <span class="font-semibold">${dept.department_name || dept.name}</span>
                 </div>
-                <div class="text-green-600 font-bold">${dept.total_points}pt</div>
+                <div class="text-green-600 font-bold whitespace-nowrap">${dept.total_points}pt</div>
               </div>
             `).join('')}
           </div>
