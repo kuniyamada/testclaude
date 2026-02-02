@@ -1046,15 +1046,23 @@ async function loadRanking() {
           <h4 class="text-lg font-bold text-green-700 mb-3">🏢 部署ランキング</h4>
           <div class="space-y-2">
             ${depts.map((dept, i) => `
-              <div class="flex items-center gap-3 bg-white rounded-xl p-3 border-2 ${i < 3 ? 'border-yellow-200' : 'border-gray-100'}">
-                <div class="w-8 text-center text-lg font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
-                  ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+              <div class="bg-white rounded-xl p-3 border-2 ${i < 3 ? 'border-yellow-200' : 'border-gray-100'}">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 text-center text-lg font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
+                    ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${dept.department_color || dept.color}"></div>
+                      <span class="font-semibold">${dept.department_name || dept.name}</span>
+                      <span class="text-xs text-gray-400">(${dept.member_count}名)</span>
+                    </div>
+                  </div>
+                  <div class="text-green-600 font-bold whitespace-nowrap">${dept.total_points}pt</div>
                 </div>
-                <div class="flex-1 flex items-center gap-2">
-                  <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${dept.department_color || dept.color}"></div>
-                  <span class="font-semibold">${dept.department_name || dept.name}</span>
+                <div class="mt-2 ml-11 flex items-center gap-4 text-xs text-gray-500">
+                  <span>👤 平均: <span class="font-semibold text-blue-600">${dept.avg_points}pt</span></span>
                 </div>
-                <div class="text-green-600 font-bold whitespace-nowrap">${dept.total_points}pt</div>
               </div>
             `).join('')}
           </div>
