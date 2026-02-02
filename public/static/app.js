@@ -863,8 +863,14 @@ async function loadCompanyTree() {
   container.innerHTML = '<div class="text-center py-8 text-green-600">🌲 読み込み中...</div>';
   
   try {
-    const response = await axios.get('/api/companytree/current');
-    const { tree, departments: deptStats, bridges } = response.data;
+    // カンパニーツリーと部署ランキングを同時取得
+    const [treeRes, rankingRes] = await Promise.all([
+      axios.get('/api/companytree/current'),
+      axios.get('/api/rankings/department')
+    ]);
+    
+    const { tree, departments: deptStats, bridges } = treeRes.data;
+    const deptRanking = rankingRes.data.ranking || [];
     
     container.innerHTML = `
       <div class="grid md:grid-cols-3 gap-4 mb-6">
@@ -883,6 +889,32 @@ async function loadCompanyTree() {
           <div class="text-2xl font-bold text-blue-700">${tree.cross_department_count}</div>
           <div class="text-sm text-blue-600">部署横断</div>
         </div>
+      </div>
+      
+      <!-- 部署別平均ランキング -->
+      <h4 class="text-lg font-bold text-green-700 mb-2">🏆 部署別平均ランキング</h4>
+      <p class="text-xs text-gray-500 mb-3">※ 平均 = 総ポイント ÷ 人数</p>
+      <div class="space-y-2 mb-6">
+        ${deptRanking.map((dept, i) => `
+          <div class="bg-white rounded-xl p-3 border-2 ${i < 3 ? 'border-yellow-200' : 'border-gray-100'}">
+            <div class="flex items-center gap-3">
+              <div class="w-8 text-center text-lg font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-500'}">
+                ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full" style="background-color: ${dept.department_color}"></div>
+                  <span class="font-semibold">${dept.department_name}</span>
+                  <span class="text-xs text-gray-400">(${dept.member_count}名)</span>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-blue-600 font-bold">${dept.avg_points}pt</div>
+                <div class="text-xs text-gray-400">平均</div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
       </div>
       
       <h4 class="text-lg font-bold text-green-700 mb-3">📊 部署別統計</h4>
