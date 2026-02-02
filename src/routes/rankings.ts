@@ -55,7 +55,7 @@ rankings.get('/individual', async (c) => {
   return c.json({ ranking, year_month: yearMonth });
 });
 
-// 部署ランキング（今月の総ポイント）
+// 部署ランキング（今月の平均ポイント順）
 rankings.get('/department', async (c) => {
   const db = c.env.DB;
   const yearMonth = getJSTYearMonth();
@@ -83,15 +83,21 @@ rankings.get('/department', async (c) => {
       WHERE strftime('%Y-%m', t.created_at) = ?
       GROUP BY u.department_id
     ) received ON d.id = received.department_id
-    ORDER BY total_points DESC
   `).bind(yearMonth, yearMonth).all();
   
-  // 平均ポイント計算とランク付け
-  const ranking = result.results.map((r: any, index: number) => ({
+  // 平均ポイント計算
+  const withAvg = result.results.map((r: any) => ({
     ...r,
-    avg_points: r.member_count > 0 ? Math.round((r.total_points / r.member_count) * 100) / 100 : 0,
-    rank: index + 1
+    avg_points: r.member_count > 0 ? Math.round((r.total_points / r.member_count) * 100) / 100 : 0
   }));
+  
+  // 平均ポイント順でソートしてランク付け
+  const ranking = withAvg
+    .sort((a: any, b: any) => b.avg_points - a.avg_points)
+    .map((r: any, index: number) => ({
+      ...r,
+      rank: index + 1
+    }));
   
   return c.json({ ranking, year_month: yearMonth });
 });
