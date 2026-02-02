@@ -133,6 +133,48 @@ async function updateGardenState(DB: D1Database) {
   }
 }
 
+// カンパニーツリーの統計を更新
+async function updateCompanyTree(DB: D1Database, senderDeptId: number, receiverDeptId: number, points: number, isCrossDepartment: boolean) {
+  try {
+    const yearMonth = getJSTYearMonth();
+    
+    // monthly_company_tree を更新（存在しなければ作成）
+    await DB.prepare(`
+      INSERT INTO monthly_company_tree (year_month, total_thanks_count, total_points, cross_department_count, tree_level)
+      VALUES (?, 1, ?, ?, 1)
+      ON CONFLICT(year_month) DO UPDATE SET
+        total_thanks_count = total_thanks_count + 1,
+        total_points = total_points + ?,
+        cross_department_count = cross_department_count + ?,
+        updated_at = datetime('now')
+    `).bind(yearMonth, points, isCrossDepartment ? 1 : 0, points, isCrossDepartment ? 1 : 0).run();
+    
+    // 送信者部署の統計を更新
+    await DB.prepare(`
+      INSERT INTO monthly_department_stats (year_month, department_id, thanks_sent, points_sent, cross_department_sent)
+      VALUES (?, ?, 1, ?, ?)
+      ON CONFLICT(year_month, department_id) DO UPDATE SET
+        thanks_sent = thanks_sent + 1,
+        points_sent = points_sent + ?,
+        cross_department_sent = cross_department_sent + ?,
+        updated_at = datetime('now')
+    `).bind(yearMonth, senderDeptId, points, isCrossDepartment ? 1 : 0, points, isCrossDepartment ? 1 : 0).run();
+    
+    // 受信者部署の統計を更新
+    await DB.prepare(`
+      INSERT INTO monthly_department_stats (year_month, department_id, thanks_received, points_received)
+      VALUES (?, ?, 1, ?)
+      ON CONFLICT(year_month, department_id) DO UPDATE SET
+        thanks_received = thanks_received + 1,
+        points_received = points_received + ?,
+        updated_at = datetime('now')
+    `).bind(yearMonth, receiverDeptId, points, points).run();
+    
+  } catch (error) {
+    console.error('Failed to update company tree:', error);
+  }
+}
+
 // タイムライン取得
 app.get('/timeline', async (c) => {
   const { DB } = c.env;
@@ -270,6 +312,9 @@ app.post('/send', async (c) => {
     
     // 庭の状態を更新
     await updateGardenState(DB);
+    
+    // カンパニーツリーの統計を更新
+    await updateCompanyTree(DB, sender.dept_id, receiver.dept_id, finalPoints, isCrossDepartment);
     
     return c.json({
       success: true,
