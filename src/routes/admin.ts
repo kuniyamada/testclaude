@@ -174,19 +174,36 @@ app.post('/users', async (c) => {
 app.put('/users/:id', async (c) => {
   const { DB } = c.env;
   const userId = parseInt(c.req.param('id'));
-  const { admin_user_id, name, department_id } = await c.req.json();
-  
+  const { admin_user_id, name, department_id, daily_seeds, total_received_points, total_sent_points, tree_level } = await c.req.json();
+
   if (!await isAdmin(DB, admin_user_id)) {
     return c.json({ error: '管理者権限がありません' }, 403);
   }
-  
+
   try {
-    await DB.prepare(`
-      UPDATE users SET name = ?, department_id = ? WHERE id = ?
-    `).bind(name, department_id, userId).run();
-    
-    await logAction(DB, admin_user_id, 'UPDATE_USER', 'user', userId, `名前: ${name}`);
-    
+    const changes: string[] = [];
+
+    if (daily_seeds !== undefined || total_received_points !== undefined || total_sent_points !== undefined || tree_level !== undefined) {
+      await DB.prepare(`
+        UPDATE users SET name = ?, department_id = ?, daily_seeds = ?, total_received_points = ?, total_sent_points = ?, tree_level = ? WHERE id = ?
+      `).bind(
+        name, department_id,
+        daily_seeds ?? 3,
+        total_received_points ?? 0,
+        total_sent_points ?? 0,
+        tree_level ?? 1,
+        userId
+      ).run();
+      changes.push(`名前: ${name}, シード: ${daily_seeds}, 受信pt: ${total_received_points}, 送信pt: ${total_sent_points}, Lv: ${tree_level}`);
+    } else {
+      await DB.prepare(`
+        UPDATE users SET name = ?, department_id = ? WHERE id = ?
+      `).bind(name, department_id, userId).run();
+      changes.push(`名前: ${name}`);
+    }
+
+    await logAction(DB, admin_user_id, 'UPDATE_USER', 'user', userId, changes.join(', '));
+
     return c.json({ success: true, message: 'ユーザーを更新しました' });
   } catch (error) {
     console.error('Update user error:', error);

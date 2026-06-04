@@ -178,7 +178,10 @@
                 <tr>
                   <th>名前</th>
                   <th>部署</th>
+                  <th>🌱</th>
                   <th>受信pt</th>
+                  <th>送信pt</th>
+                  <th>Lv</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -291,13 +294,38 @@
     <div class="modal-content">
       <h3 class="text-lg font-bold mb-4" id="userModalTitle">ユーザー追加</h3>
       <input type="hidden" id="editUserId">
-      <div class="mb-4">
-        <label class="block text-gray-700 text-sm mb-2">名前</label>
+      <div class="mb-3">
+        <label class="block text-gray-700 text-sm mb-1">名前</label>
         <input type="text" id="userName" class="input" placeholder="名前を入力">
       </div>
-      <div class="mb-4">
-        <label class="block text-gray-700 text-sm mb-2">部署</label>
+      <div class="mb-3">
+        <label class="block text-gray-700 text-sm mb-1">部署</label>
         <select id="userDept" class="input"></select>
+      </div>
+      <div id="userExtraFields" class="hidden">
+        <div class="border-t pt-3 mt-2 mb-3">
+          <p class="text-xs text-gray-500 mb-2">詳細設定</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">🌱 シード</label>
+            <input type="number" id="userSeeds" class="input" min="0" max="99" value="3">
+          </div>
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">🌳 ツリーLv</label>
+            <input type="number" id="userTreeLevel" class="input" min="1" max="6" value="1">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">⭐ 受信pt</label>
+            <input type="number" id="userReceivedPts" class="input" min="0" step="0.1" value="0">
+          </div>
+          <div>
+            <label class="block text-gray-700 text-sm mb-1">📤 送信pt</label>
+            <input type="number" id="userSentPts" class="input" min="0" step="0.1" value="0">
+          </div>
+        </div>
       </div>
       <div class="flex gap-2">
         <button onclick="saveUser()" class="flex-1 btn-primary">保存</button>
@@ -427,7 +455,10 @@
                 ${user.department_name}
               </span>
             </td>
+            <td>${user.daily_seeds}</td>
             <td>${Math.round(user.total_received_points)}</td>
+            <td>${Math.round(user.total_sent_points)}</td>
+            <td>${user.tree_level}</td>
             <td>
               <button onclick="editUser(${user.id})" class="text-blue-500 p-1"><i class="fas fa-edit"></i></button>
               <button onclick="deleteUser(${user.id}, '${user.name}')" class="text-red-500 p-1"><i class="fas fa-trash"></i></button>
@@ -511,6 +542,7 @@
       document.getElementById('userModalTitle').textContent = 'ユーザー追加';
       document.getElementById('editUserId').value = '';
       document.getElementById('userName').value = '';
+      document.getElementById('userExtraFields').classList.add('hidden');
       document.getElementById('userModal').classList.remove('hidden');
     }
     
@@ -521,6 +553,11 @@
       document.getElementById('editUserId').value = userId;
       document.getElementById('userName').value = user.name;
       document.getElementById('userDept').value = user.department_id;
+      document.getElementById('userSeeds').value = user.daily_seeds;
+      document.getElementById('userTreeLevel').value = user.tree_level;
+      document.getElementById('userReceivedPts').value = user.total_received_points;
+      document.getElementById('userSentPts').value = user.total_sent_points;
+      document.getElementById('userExtraFields').classList.remove('hidden');
       document.getElementById('userModal').classList.remove('hidden');
     }
     
@@ -530,12 +567,19 @@
       const userId = document.getElementById('editUserId').value;
       const name = document.getElementById('userName').value.trim();
       const department_id = parseInt(document.getElementById('userDept').value);
-      
+
       if (!name) { alert('名前を入力してください'); return; }
-      
+
       try {
         if (userId) {
-          await axios.put(`/api/admin/users/${userId}`, { admin_user_id: adminUser.user_id, name, department_id });
+          const daily_seeds = parseInt(document.getElementById('userSeeds').value);
+          const tree_level = parseInt(document.getElementById('userTreeLevel').value);
+          const total_received_points = parseFloat(document.getElementById('userReceivedPts').value);
+          const total_sent_points = parseFloat(document.getElementById('userSentPts').value);
+          await axios.put(`/api/admin/users/${userId}`, {
+            admin_user_id: adminUser.user_id, name, department_id,
+            daily_seeds, tree_level, total_received_points, total_sent_points
+          });
         } else {
           await axios.post('/api/admin/users', { admin_user_id: adminUser.user_id, name, department_id });
         }
