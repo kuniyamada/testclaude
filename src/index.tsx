@@ -103,6 +103,51 @@ app.get('/', (c) => {
       border-radius: 16px;
       box-shadow: 0 4px 12px rgba(134, 239, 172, 0.15);
     }
+
+    /* 主役カード（感謝を送る） */
+    .hero-card {
+      background: linear-gradient(135deg, #34d399 0%, #22c55e 55%, #16a34a 100%);
+      border: none;
+      border-radius: 20px;
+      box-shadow: 0 10px 28px rgba(16, 185, 129, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      top: -40px;
+      right: -30px;
+      width: 120px;
+      height: 120px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 50%;
+    }
+    .hero-card .hero-field {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 16px; /* iOSズーム防止 */
+      background: rgba(255, 255, 255, 0.97);
+      width: 100%;
+    }
+    .hero-card .hero-field:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6);
+    }
+    .hero-btn {
+      background: white;
+      color: #16a34a;
+      border: none;
+      border-radius: 14px;
+      font-weight: 800;
+      font-size: 15px;
+      padding: 14px 20px;
+      width: 100%;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .hero-btn:active { transform: scale(0.97); }
     
     /* ボタン */
     .cute-btn {
@@ -277,17 +322,18 @@ app.get('/', (c) => {
       
       <!-- メインコンテンツ -->
       <main class="p-3 content-area">
-        <!-- 感謝送信（コンパクト） -->
-        <div class="cute-card p-4 mb-4">
-          <h2 class="text-base font-bold text-green-700 mb-3 flex items-center gap-2">
-            <span>💝</span> 感謝を送る
+        <!-- 感謝送信（主役カード） -->
+        <div class="hero-card p-5 mb-4">
+          <h2 class="text-lg font-extrabold text-white mb-1 flex items-center gap-2 relative">
+            <span class="text-2xl">💝</span> 感謝を送ろう
           </h2>
-          <div class="space-y-3">
-            <select id="receiverSelect" class="cute-select w-full text-sm">
+          <p class="text-green-50 text-xs mb-4 relative">今日のありがとうを届けよう 🌸</p>
+          <div class="space-y-3 relative">
+            <select id="receiverSelect" class="hero-field">
               <option value="">送り先を選択...</option>
             </select>
-            <textarea id="messageInput" class="cute-input w-full h-16 resize-none text-sm" placeholder="メッセージを入力..."></textarea>
-            <button id="sendThanksBtn" class="cute-btn w-full text-sm">
+            <textarea id="messageInput" class="hero-field h-16 resize-none" placeholder="メッセージを入力..."></textarea>
+            <button id="sendThanksBtn" class="hero-btn">
               🌸 感謝を送る（種を1個使用）
             </button>
           </div>
