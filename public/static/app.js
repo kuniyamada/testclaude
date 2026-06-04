@@ -908,9 +908,12 @@ async function loadCompanyTree() {
                   <span class="text-xs text-gray-400">(${dept.member_count}名)</span>
                 </div>
               </div>
-              <div class="text-right">
-                <div class="text-blue-600 font-bold">${dept.avg_points}pt</div>
-                <div class="text-xs text-gray-400">平均</div>
+              <div class="text-right flex-shrink-0">
+                <div class="text-[10px] text-gray-400 mb-0.5">平均ポイント</div>
+                <div class="inline-flex items-baseline gap-0.5 bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-full whitespace-nowrap">
+                  <span class="text-base leading-none">${dept.avg_points}</span>
+                  <span class="text-[10px]">pt</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1067,7 +1070,10 @@ async function loadRanking() {
                     ${user.department_name}
                   </div>
                 </div>
-                <div class="text-green-600 font-bold whitespace-nowrap">${user.points || user.total_points}pt</div>
+                <div class="inline-flex items-baseline gap-0.5 bg-green-50 text-green-700 font-bold px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0">
+                  <span class="text-base leading-none">${user.points || user.total_points}</span>
+                  <span class="text-[10px]">pt</span>
+                </div>
               </div>
             `).join('')}
             ${individuals.length === 0 ? '<div class="text-center py-4 text-gray-500">まだデータがありません</div>' : ''}
@@ -1091,9 +1097,12 @@ async function loadRanking() {
                       <span class="text-xs text-gray-400">(${dept.member_count}名)</span>
                     </div>
                   </div>
-                  <div class="text-right">
-                    <div class="text-blue-600 font-bold whitespace-nowrap">${dept.avg_points}pt</div>
-                    <div class="text-xs text-gray-400">平均</div>
+                  <div class="text-right flex-shrink-0">
+                    <div class="text-[10px] text-gray-400 mb-0.5">平均ポイント</div>
+                    <div class="inline-flex items-baseline gap-0.5 bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-full whitespace-nowrap">
+                      <span class="text-base leading-none">${dept.avg_points}</span>
+                      <span class="text-[10px]">pt</span>
+                    </div>
                   </div>
                 </div>
                 <div class="mt-2 ml-11 text-xs text-gray-500">
