@@ -5,11 +5,19 @@
 local katamari = script.Parent
 
 -- 設定
-local growthRate = 0.05 -- くっつくたびに大きくなる割合
+local growthRate = 0.05 -- くっつくたびにベース球が大きくなる割合
 local minSizeRatio = 0.8 -- 自分のサイズに対してこの割合以下のオブジェクトをくっつける
+local gravityMultiplier = 0.5 -- 重力を半分にする
 
 -- くっつけたオブジェクトを記録
 local attachedParts = {}
+
+-- ベース球の重力を半分にする
+local bodyForce = Instance.new("BodyForce")
+local mass = katamari:GetMass()
+local halfGravity = workspace.Gravity * mass * (1 - gravityMultiplier)
+bodyForce.Force = Vector3.new(0, halfGravity, 0)
+bodyForce.Parent = katamari
 
 -- 塊の現在のサイズ（最大辺で判定）
 local function getKatamariSize()
@@ -51,14 +59,14 @@ local function attachPart(part)
 	weld.Part1 = part
 	weld.Parent = katamari
 
-	-- 塊を少し大きくする
+	-- ベース球を徐々に大きくする
 	local growth = 1 + (growthRate * (partSize / katamariSize))
 	katamari.Size = katamari.Size * growth
 
-	-- 質量も増えるので転がる感覚が変わっていく
-	if katamari:FindFirstChild("BodyMass") then
-		katamari.BodyMass.Value = katamari.BodyMass.Value + part:GetMass()
-	end
+	-- サイズが変わったので重力補正を再計算
+	local newMass = katamari:GetMass()
+	local newHalfGravity = workspace.Gravity * newMass * (1 - gravityMultiplier)
+	bodyForce.Force = Vector3.new(0, newHalfGravity, 0)
 end
 
 -- 接触イベント
