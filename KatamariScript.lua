@@ -11,6 +11,7 @@ local gravityMultiplier = 0.5 -- 重力を半分にする
 
 -- くっつけたオブジェクトを記録
 local attachedParts = {}
+local attachCount = 0
 
 -- ベース球の重力を半分にする
 local bodyForce = Instance.new("BodyForce")
@@ -48,11 +49,26 @@ local function attachPart(part)
 	if partSize > katamariSize * minSizeRatio then return end
 
 	attachedParts[part] = true
+	attachCount = attachCount + 1
 
 	-- 物理演算を調整してくっつける
 	part.CanCollide = false
 	part.Anchored = false
-	part.Massless = true -- 重力・質量の影響をなくして球が転がれるようにする
+	part.Massless = true
+
+	-- 球の表面にバランスよく配置する（黄金角を使った均等分布）
+	local goldenAngle = math.pi * (3 - math.sqrt(5))
+	local theta = goldenAngle * attachCount
+	local phi = math.acos(1 - 2 * ((attachCount % 50) + 0.5) / 50)
+
+	local radius = getKatamariSize() / 2 + getPartSize(part) / 2
+	local x = radius * math.sin(phi) * math.cos(theta)
+	local y = radius * math.sin(phi) * math.sin(theta)
+	local z = radius * math.cos(phi)
+
+	local offset = Vector3.new(x, y, z)
+
+	part.CFrame = katamari.CFrame * CFrame.new(offset)
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = katamari
