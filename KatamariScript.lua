@@ -7,7 +7,7 @@ local katamari = script.Parent
 -- 設定
 local growthRate = 0.05 -- くっつくたびにベース球が大きくなる割合
 local minSizeRatio = 0.8 -- 自分のサイズに対してこの割合以下のオブジェクトをくっつける
-local gravityMultiplier = 0.5 -- 重力を半分にする
+local gravityMultiplier = 0.2 -- 重力を2割にする（かなり軽い）
 
 -- くっつけたオブジェクトを記録
 local attachedParts = {}
