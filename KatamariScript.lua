@@ -33,8 +33,8 @@ end
 -- オブジェクトをくっつける
 local function attachPart(part)
 	if attachedParts[part] then return end
-	if part.Anchored then return end
 	if part:IsDescendantOf(katamari) then return end
+	if part.Name == "Baseplate" or part.Name == "Terrain" then return end
 
 	-- プレイヤーキャラクターのパーツは除外
 	for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
