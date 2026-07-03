@@ -41,9 +41,10 @@ local function attachPart(part)
 
 	attachedParts[part] = true
 
-	-- 物理演算を無効化してくっつける
+	-- 物理演算を調整してくっつける
 	part.CanCollide = false
 	part.Anchored = false
+	part.Massless = true -- 重力・質量の影響をなくして球が転がれるようにする
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = katamari
