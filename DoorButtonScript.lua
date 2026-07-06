@@ -37,7 +37,7 @@ end
 
 -- === ProximityPrompt: Door1 ===
 local prompt1 = Instance.new("ProximityPrompt")
-prompt1.ObjectText = "扉1"
+prompt1.ObjectText = "用具室"
 prompt1.ActionText = "開ける"
 prompt1.KeyboardKeyCode = Enum.KeyCode.E
 prompt1.MaxActivationDistance = interactDistance
@@ -48,7 +48,7 @@ prompt1.Parent = door
 local prompt2 = nil
 if door2 then
 	prompt2 = Instance.new("ProximityPrompt")
-	prompt2.ObjectText = "扉2"
+	prompt2.ObjectText = "職員室"
 	prompt2.ActionText = "開ける"
 	prompt2.KeyboardKeyCode = Enum.KeyCode.E
 	prompt2.MaxActivationDistance = interactDistance
@@ -126,9 +126,9 @@ end
 -- 現在のヒントテキストを返す
 local function getCurrentHint()
 	if not door1Open then
-		return "🔑 鍵を探す"
+		return "🔑 用具室の鍵を探す"
 	elseif not door2Open then
-		return "🔑 鍵2を探す"
+		return "🔑 職員室の鍵を探す"
 	else
 		return nil
 	end
@@ -154,7 +154,7 @@ local function setupKey1()
 
 		playersWithKey1[player.UserId] = true
 		key:Destroy()
-		showMessage(player, "🔑 鍵1を手に入れた！", Color3.fromRGB(100, 255, 100))
+		showMessage(player, "🔑 用具室の鍵を手に入れた！", Color3.fromRGB(100, 255, 100))
 	end)
 end
 
@@ -180,7 +180,7 @@ local function setupKey2()
 
 		playersWithKey2[player.UserId] = true
 		key2:Destroy()
-		showMessage(player, "🔑 鍵2を手に入れた！", Color3.fromRGB(100, 255, 100))
+		showMessage(player, "🔑 職員室の鍵を手に入れた！", Color3.fromRGB(100, 255, 100))
 	end)
 end
 
@@ -226,7 +226,7 @@ prompt1.Triggered:Connect(function(player)
 	if door1Open then return end
 
 	if not playersWithKey1[player.UserId] then
-		showMessage(player, "🔒 鍵がない！", Color3.fromRGB(255, 80, 80))
+		showMessage(player, "🔒 用具室の鍵がない！", Color3.fromRGB(255, 80, 80))
 		return
 	end
 
@@ -252,7 +252,7 @@ if prompt2 and door2 then
 		if door2Open then return end
 
 		if not playersWithKey2[player.UserId] then
-			showMessage(player, "🔒 鍵2がない！", Color3.fromRGB(255, 80, 80))
+			showMessage(player, "🔒 職員室の鍵がない！", Color3.fromRGB(255, 80, 80))
 			return
 		end
 
