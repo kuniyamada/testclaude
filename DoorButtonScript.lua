@@ -53,6 +53,7 @@ if door2 then
 	prompt2.KeyboardKeyCode = Enum.KeyCode.E
 	prompt2.MaxActivationDistance = interactDistance
 	prompt2.HoldDuration = 0
+	prompt2.Enabled = false -- Door1が開くまで無効
 	prompt2.Parent = door2
 end
 
@@ -234,6 +235,11 @@ prompt1.Triggered:Connect(function(player)
 	prompt1.Enabled = false
 	door1Open = true
 	isMoving1 = false
+
+	-- Door2のプロンプトを有効にする
+	if prompt2 then
+		prompt2.Enabled = true
+	end
 
 	-- ヒントを更新
 	updateAllHints()
