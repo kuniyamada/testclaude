@@ -142,14 +142,20 @@ local function updateAllHints()
 	end
 end
 
--- Key1を拾うスクリプト
+-- Key1をEキーで拾えるようにする
 local function setupKey1()
 	local key = workspace:FindFirstChild("Key")
 	if not key then return end
 
-	key.Touched:Connect(function(hit)
-		local player = Players:GetPlayerFromCharacter(hit.Parent)
-		if not player then return end
+	local keyPrompt = Instance.new("ProximityPrompt")
+	keyPrompt.ObjectText = "用具室の鍵"
+	keyPrompt.ActionText = "拾う"
+	keyPrompt.KeyboardKeyCode = Enum.KeyCode.E
+	keyPrompt.MaxActivationDistance = 8
+	keyPrompt.HoldDuration = 0
+	keyPrompt.Parent = key
+
+	keyPrompt.Triggered:Connect(function(player)
 		if playersWithKey1[player.UserId] then return end
 
 		playersWithKey1[player.UserId] = true
@@ -160,7 +166,7 @@ end
 
 setupKey1()
 
--- Key2を拾えるようにする
+-- Key2をEキーで拾えるようにする
 local function setupKey2()
 	if not key2 then
 		key2 = workspace:FindFirstChild("Key2")
@@ -173,9 +179,15 @@ local function setupKey2()
 		return
 	end
 
-	key2.Touched:Connect(function(hit)
-		local player = Players:GetPlayerFromCharacter(hit.Parent)
-		if not player then return end
+	local keyPrompt2 = Instance.new("ProximityPrompt")
+	keyPrompt2.ObjectText = "職員室の鍵"
+	keyPrompt2.ActionText = "拾う"
+	keyPrompt2.KeyboardKeyCode = Enum.KeyCode.E
+	keyPrompt2.MaxActivationDistance = 8
+	keyPrompt2.HoldDuration = 0
+	keyPrompt2.Parent = key2
+
+	keyPrompt2.Triggered:Connect(function(player)
 		if playersWithKey2[player.UserId] then return end
 
 		playersWithKey2[player.UserId] = true
@@ -183,6 +195,8 @@ local function setupKey2()
 		showMessage(player, "🔑 職員室の鍵を手に入れた！", Color3.fromRGB(100, 255, 100))
 	end)
 end
+
+setupKey2()
 
 -- プレイヤーが参加したらヒントを表示
 Players.PlayerAdded:Connect(function(player)
