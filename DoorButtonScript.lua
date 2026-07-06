@@ -27,9 +27,17 @@ local playersWithKey2 = {}
 local door2 = workspace:FindFirstChild("Door2")
 local closedCFrame2 = door2 and door2.CFrame or nil
 
--- Key2を最初は非表示にする
+-- Key2を探して非表示にする（読み込み待ち対応）
 local key2 = workspace:FindFirstChild("Key2")
-if key2 then
+if not key2 then
+	task.defer(function()
+		key2 = workspace:WaitForChild("Key2", 30)
+		if key2 then
+			key2.Transparency = 1
+			key2.CanCollide = false
+		end
+	end)
+else
 	key2.Transparency = 1
 	key2.CanCollide = false
 end
@@ -175,10 +183,17 @@ setupKey1()
 
 -- Key2を出現させてTouchedイベントを接続する
 local function revealKey2()
+	-- まだ見つかっていなければ再検索＋待機
 	if not key2 then
 		key2 = workspace:FindFirstChild("Key2")
 	end
-	if not key2 then return end
+	if not key2 then
+		key2 = workspace:WaitForChild("Key2", 30)
+	end
+	if not key2 then
+		warn("Key2がWorkspaceに見つかりません")
+		return
+	end
 
 	key2.Transparency = 0
 	key2.CanCollide = true
