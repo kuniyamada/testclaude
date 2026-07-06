@@ -27,19 +27,12 @@ local playersWithKey2 = {}
 local door2 = workspace:FindFirstChild("Door2")
 local closedCFrame2 = door2 and door2.CFrame or nil
 
--- Key2を探して非表示にする（読み込み待ち対応）
+-- Key2の参照を取得
 local key2 = workspace:FindFirstChild("Key2")
 if not key2 then
 	task.defer(function()
 		key2 = workspace:WaitForChild("Key2", 30)
-		if key2 then
-			key2.Transparency = 1
-			key2.CanCollide = false
-		end
 	end)
-else
-	key2.Transparency = 1
-	key2.CanCollide = false
 end
 
 -- === ProximityPrompt: Door1 ===
@@ -164,26 +157,10 @@ local function setupKey1()
 	end)
 end
 
--- Key2を拾うスクリプト
-local function setupKey2()
-	if not key2 then return end
-
-	key2.Touched:Connect(function(hit)
-		local player = Players:GetPlayerFromCharacter(hit.Parent)
-		if not player then return end
-		if playersWithKey2[player.UserId] then return end
-
-		playersWithKey2[player.UserId] = true
-		key2:Destroy()
-		showMessage(player, "🔑 鍵2を手に入れた！", Color3.fromRGB(100, 255, 100))
-	end)
-end
-
 setupKey1()
 
--- Key2を出現させてTouchedイベントを接続する
-local function revealKey2()
-	-- まだ見つかっていなければ再検索＋待機
+-- Key2を拾えるようにする
+local function setupKey2()
 	if not key2 then
 		key2 = workspace:FindFirstChild("Key2")
 	end
@@ -195,10 +172,6 @@ local function revealKey2()
 		return
 	end
 
-	key2.Transparency = 0
-	key2.CanCollide = true
-
-	-- 出現してからTouchedを接続
 	key2.Touched:Connect(function(hit)
 		local player = Players:GetPlayerFromCharacter(hit.Parent)
 		if not player then return end
@@ -262,8 +235,7 @@ prompt1.Triggered:Connect(function(player)
 	door1Open = true
 	isMoving1 = false
 
-	-- Key2を出現させてヒントを更新
-	revealKey2()
+	-- ヒントを更新
 	updateAllHints()
 end)
 
