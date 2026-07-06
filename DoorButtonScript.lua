@@ -172,9 +172,8 @@ local function setupKey2()
 end
 
 setupKey1()
-setupKey2()
 
--- Key2を出現させる
+-- Key2を出現させてTouchedイベントを接続する
 local function revealKey2()
 	if not key2 then
 		key2 = workspace:FindFirstChild("Key2")
@@ -183,6 +182,17 @@ local function revealKey2()
 
 	key2.Transparency = 0
 	key2.CanCollide = true
+
+	-- 出現してからTouchedを接続
+	key2.Touched:Connect(function(hit)
+		local player = Players:GetPlayerFromCharacter(hit.Parent)
+		if not player then return end
+		if playersWithKey2[player.UserId] then return end
+
+		playersWithKey2[player.UserId] = true
+		key2:Destroy()
+		showMessage(player, "🔑 鍵2を手に入れた！", Color3.fromRGB(100, 255, 100))
+	end)
 end
 
 -- プレイヤーが参加したらヒントを表示
