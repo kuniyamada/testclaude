@@ -80,6 +80,68 @@ end
 
 setupKey()
 
+-- 「鍵を探す」ヒントを左上に表示する
+local function showHint(player)
+	local playerGui = player:FindFirstChild("PlayerGui")
+	if not playerGui then return end
+
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "KeyHintGui"
+	screenGui.Parent = playerGui
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0.2, 0, 0.05, 0)
+	label.Position = UDim2.new(0.01, 0, 0.01, 0)
+	label.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	label.BackgroundTransparency = 0.3
+	label.BorderSizePixel = 0
+	label.Text = "🔑 鍵を探す"
+	label.TextColor3 = Color3.fromRGB(255, 255, 100)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = screenGui
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = label
+end
+
+-- 全プレイヤーのヒントを消す
+local function removeAllHints()
+	for _, player in ipairs(Players:GetPlayers()) do
+		local playerGui = player:FindFirstChild("PlayerGui")
+		if playerGui then
+			local hint = playerGui:FindFirstChild("KeyHintGui")
+			if hint then
+				hint:Destroy()
+			end
+		end
+	end
+end
+
+-- プレイヤーが参加したらヒントを表示
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		if not isOpen then
+			showHint(player)
+		end
+	end)
+end)
+
+-- 既に参加しているプレイヤーにも表示
+for _, player in ipairs(Players:GetPlayers()) do
+	if not isOpen then
+		task.defer(function()
+			showHint(player)
+		end)
+	end
+	player.CharacterAdded:Connect(function()
+		if not isOpen then
+			showHint(player)
+		end
+	end)
+end
+
 -- 扉を動かす
 local function moveDoor(targetCFrame)
 	isMoving = true
@@ -106,6 +168,7 @@ prompt.Triggered:Connect(function(player)
 
 	moveDoor(closedCFrame * CFrame.new(openOffset))
 	prompt.ActionText = "開いている"
-	prompt.Enabled = false -- 開いた後はプロンプトを消す
+	prompt.Enabled = false
 	isOpen = true
+	removeAllHints() -- 扉が開いたらヒントを消す
 end)
