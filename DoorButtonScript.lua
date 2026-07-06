@@ -1,34 +1,61 @@
--- DoorScript（鍵システム付き・Eキーで開閉）
+-- DoorScript（2つの扉・鍵システム付き・Eキーで開閉）
 -- 構成:
---   Workspace内に「Door」と「Key」という名前のPartを配置
---   このスクリプトは「Door」の中に入れる（Serverスクリプト）
---   ProximityPromptで近づいてEキーを押すと開閉する
+--   Workspace内に「Door」「Door2」「Key」「Key2」を配置
+--   このスクリプトは「Door」の中に入れる
+--   Key2は最初は非表示。Door1が開いたらKey2が出現する
 
 local door = script.Parent
 local Players = game:GetService("Players")
 
 -- 設定
 local openOffset = Vector3.new(7, 0, 0) -- 扉が横に7スタッド移動して開く
-local moveSpeed = 0.05 -- 開閉の速さ
-local interactDistance = 10 -- Eキーが反応する距離（スタッド）
+local moveSpeed = 0.05
+local interactDistance = 10
 
-local isOpen = false
-local isMoving = false
-local closedCFrame = door.CFrame
+-- 状態管理
+local door1Open = false
+local door2Open = false
+local isMoving1 = false
+local isMoving2 = false
+local closedCFrame1 = door.CFrame
 
 -- 鍵を持っているプレイヤーを記録
-local playersWithKey = {}
+local playersWithKey1 = {}
+local playersWithKey2 = {}
 
--- ProximityPromptを扉に追加（Eキーで操作）
-local prompt = Instance.new("ProximityPrompt")
-prompt.ObjectText = "扉"
-prompt.ActionText = "開ける"
-prompt.KeyboardKeyCode = Enum.KeyCode.E
-prompt.MaxActivationDistance = interactDistance
-prompt.HoldDuration = 0
-prompt.Parent = door
+-- Door2の参照とCFrame（後で取得）
+local door2 = workspace:FindFirstChild("Door2")
+local closedCFrame2 = door2 and door2.CFrame or nil
 
--- 「鍵がない」メッセージを表示する
+-- Key2を最初は非表示にする
+local key2 = workspace:FindFirstChild("Key2")
+if key2 then
+	key2.Transparency = 1
+	key2.CanCollide = false
+end
+
+-- === ProximityPrompt: Door1 ===
+local prompt1 = Instance.new("ProximityPrompt")
+prompt1.ObjectText = "扉1"
+prompt1.ActionText = "開ける"
+prompt1.KeyboardKeyCode = Enum.KeyCode.E
+prompt1.MaxActivationDistance = interactDistance
+prompt1.HoldDuration = 0
+prompt1.Parent = door
+
+-- === ProximityPrompt: Door2 ===
+local prompt2 = nil
+if door2 then
+	prompt2 = Instance.new("ProximityPrompt")
+	prompt2.ObjectText = "扉2"
+	prompt2.ActionText = "開ける"
+	prompt2.KeyboardKeyCode = Enum.KeyCode.E
+	prompt2.MaxActivationDistance = interactDistance
+	prompt2.HoldDuration = 0
+	prompt2.Parent = door2
+end
+
+-- メッセージを表示する
 local function showMessage(player, text, color)
 	local playerGui = player:FindFirstChild("PlayerGui")
 	if not playerGui then return end
@@ -62,28 +89,16 @@ local function showMessage(player, text, color)
 	end)
 end
 
--- 鍵を拾うスクリプト
-local function setupKey()
-	local key = workspace:FindFirstChild("Key")
-	if not key then return end
-
-	key.Touched:Connect(function(hit)
-		local player = Players:GetPlayerFromCharacter(hit.Parent)
-		if not player then return end
-		if playersWithKey[player.UserId] then return end
-
-		playersWithKey[player.UserId] = true
-		key:Destroy()
-		showMessage(player, "🔑 鍵を手に入れた！", Color3.fromRGB(100, 255, 100))
-	end)
-end
-
-setupKey()
-
--- 「鍵を探す」ヒントを左上に表示する
-local function showHint(player)
+-- ヒントを左上に表示・更新する
+local function updateHint(player, text)
 	local playerGui = player:FindFirstChild("PlayerGui")
 	if not playerGui then return end
+
+	-- 既存のヒントを消す
+	local old = playerGui:FindFirstChild("KeyHintGui")
+	if old then old:Destroy() end
+
+	if not text then return end
 
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "KeyHintGui"
@@ -95,7 +110,7 @@ local function showHint(player)
 	label.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 	label.BackgroundTransparency = 0.3
 	label.BorderSizePixel = 0
-	label.Text = "🔑 鍵を探す"
+	label.Text = text
 	label.TextColor3 = Color3.fromRGB(255, 255, 100)
 	label.TextScaled = true
 	label.Font = Enum.Font.GothamBold
@@ -106,69 +121,145 @@ local function showHint(player)
 	corner.Parent = label
 end
 
--- 全プレイヤーのヒントを消す
-local function removeAllHints()
-	for _, player in ipairs(Players:GetPlayers()) do
-		local playerGui = player:FindFirstChild("PlayerGui")
-		if playerGui then
-			local hint = playerGui:FindFirstChild("KeyHintGui")
-			if hint then
-				hint:Destroy()
-			end
-		end
+-- 現在のヒントテキストを返す
+local function getCurrentHint()
+	if not door1Open then
+		return "🔑 鍵を探す"
+	elseif not door2Open then
+		return "🔑 鍵2を探す"
+	else
+		return nil
 	end
+end
+
+-- 全プレイヤーのヒントを更新する
+local function updateAllHints()
+	local hint = getCurrentHint()
+	for _, player in ipairs(Players:GetPlayers()) do
+		updateHint(player, hint)
+	end
+end
+
+-- Key1を拾うスクリプト
+local function setupKey1()
+	local key = workspace:FindFirstChild("Key")
+	if not key then return end
+
+	key.Touched:Connect(function(hit)
+		local player = Players:GetPlayerFromCharacter(hit.Parent)
+		if not player then return end
+		if playersWithKey1[player.UserId] then return end
+
+		playersWithKey1[player.UserId] = true
+		key:Destroy()
+		showMessage(player, "🔑 鍵1を手に入れた！", Color3.fromRGB(100, 255, 100))
+	end)
+end
+
+-- Key2を拾うスクリプト
+local function setupKey2()
+	if not key2 then return end
+
+	key2.Touched:Connect(function(hit)
+		local player = Players:GetPlayerFromCharacter(hit.Parent)
+		if not player then return end
+		if playersWithKey2[player.UserId] then return end
+
+		playersWithKey2[player.UserId] = true
+		key2:Destroy()
+		showMessage(player, "🔑 鍵2を手に入れた！", Color3.fromRGB(100, 255, 100))
+	end)
+end
+
+setupKey1()
+setupKey2()
+
+-- Key2を出現させる
+local function revealKey2()
+	if not key2 then
+		key2 = workspace:FindFirstChild("Key2")
+	end
+	if not key2 then return end
+
+	key2.Transparency = 0
+	key2.CanCollide = true
 end
 
 -- プレイヤーが参加したらヒントを表示
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
-		if not isOpen then
-			showHint(player)
+		local hint = getCurrentHint()
+		if hint then
+			updateHint(player, hint)
 		end
 	end)
 end)
 
 -- 既に参加しているプレイヤーにも表示
 for _, player in ipairs(Players:GetPlayers()) do
-	if not isOpen then
-		task.defer(function()
-			showHint(player)
-		end)
-	end
+	task.defer(function()
+		local hint = getCurrentHint()
+		if hint then
+			updateHint(player, hint)
+		end
+	end)
 	player.CharacterAdded:Connect(function()
-		if not isOpen then
-			showHint(player)
+		local hint = getCurrentHint()
+		if hint then
+			updateHint(player, hint)
 		end
 	end)
 end
 
 -- 扉を動かす
-local function moveDoor(targetCFrame)
-	isMoving = true
+local function moveDoor(targetDoor, targetCFrame)
 	local steps = 20
-	local startCFrame = door.CFrame
+	local startCFrame = targetDoor.CFrame
 	for i = 1, steps do
-		door.CFrame = startCFrame:Lerp(targetCFrame, i / steps)
+		targetDoor.CFrame = startCFrame:Lerp(targetCFrame, i / steps)
 		task.wait(moveSpeed)
 	end
-	isMoving = false
 end
 
--- Eキーが押されたとき
-prompt.Triggered:Connect(function(player)
-	if isMoving then return end
+-- Door1: Eキーが押されたとき
+prompt1.Triggered:Connect(function(player)
+	if isMoving1 then return end
+	if door1Open then return end
 
-	-- 鍵を持っていなければメッセージ表示
-	if not playersWithKey[player.UserId] then
+	if not playersWithKey1[player.UserId] then
 		showMessage(player, "🔒 鍵がない！", Color3.fromRGB(255, 80, 80))
 		return
 	end
 
-	if isOpen then return end -- 開いたらそのまま
+	isMoving1 = true
+	moveDoor(door, closedCFrame1 * CFrame.new(openOffset))
+	prompt1.Enabled = false
+	door1Open = true
+	isMoving1 = false
 
-	moveDoor(closedCFrame * CFrame.new(openOffset))
-	prompt.ActionText = "開いている"
-	prompt.Enabled = false
-	isOpen = true
-	removeAllHints() -- 扉が開いたらヒントを消す
+	-- Key2を出現させてヒントを更新
+	revealKey2()
+	updateAllHints()
 end)
+
+-- Door2: Eキーが押されたとき
+if prompt2 and door2 then
+	prompt2.Triggered:Connect(function(player)
+		if isMoving2 then return end
+		if door2Open then return end
+
+		if not playersWithKey2[player.UserId] then
+			showMessage(player, "🔒 鍵2がない！", Color3.fromRGB(255, 80, 80))
+			return
+		end
+
+		isMoving2 = true
+		moveDoor(door2, closedCFrame2 * CFrame.new(openOffset))
+		prompt2.Enabled = false
+		door2Open = true
+		isMoving2 = false
+
+		-- ヒントを消す
+		updateAllHints()
+	end)
+end
