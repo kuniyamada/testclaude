@@ -8,7 +8,7 @@ local door = script.Parent
 local Players = game:GetService("Players")
 
 -- 設定
-local openOffset = Vector3.new(0, 7, 0) -- 扉が上に7スタッド移動して開く
+local openOffset = Vector3.new(7, 0, 0) -- 扉が横に7スタッド移動して開く
 local moveSpeed = 0.05 -- 開閉の速さ
 local interactDistance = 10 -- Eキーが反応する距離（スタッド）
 
@@ -102,13 +102,10 @@ prompt.Triggered:Connect(function(player)
 		return
 	end
 
-	if isOpen then
-		moveDoor(closedCFrame)
-		prompt.ActionText = "開ける"
-		isOpen = false
-	else
-		moveDoor(closedCFrame * CFrame.new(openOffset))
-		prompt.ActionText = "閉める"
-		isOpen = true
-	end
+	if isOpen then return end -- 開いたらそのまま
+
+	moveDoor(closedCFrame * CFrame.new(openOffset))
+	prompt.ActionText = "開いている"
+	prompt.Enabled = false -- 開いた後はプロンプトを消す
+	isOpen = true
 end)
