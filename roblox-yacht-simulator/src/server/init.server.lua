@@ -1,0 +1,1 @@
+-- YachtRaceSimulator Server Entry

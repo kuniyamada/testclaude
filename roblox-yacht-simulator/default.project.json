@@ -1,0 +1,33 @@
+{
+  "name": "YachtRaceSimulator",
+  "tree": {
+    "$className": "DataModel",
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$path": "src/server"
+    },
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$path": "src/shared"
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$path": "src/client"
+      }
+    },
+    "StarterGui": {
+      "$className": "StarterGui",
+      "$path": "src/gui"
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$path": "src/storage"
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "$path": "src/workspace"
+    }
+  }
+}
