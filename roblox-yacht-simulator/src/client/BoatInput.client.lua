@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Config)
 local BoatController = require(ReplicatedStorage.BoatController)
@@ -15,6 +16,7 @@ local RaceUpdateEvent = remotes:WaitForChild("RaceUpdate")
 local WindUpdateEvent = remotes:WaitForChild("WindUpdate")
 
 local boat = nil
+local boatModel = nil
 local steerInput = 0
 local sailInput = 0
 local currentMode = "Kids"
@@ -44,10 +46,63 @@ local function isKeyInList(keyCode, keyList)
 	return false
 end
 
+local function findBoatModel()
+	local model = Workspace:FindFirstChild("Sail Boat")
+	if model then
+		return model
+	end
+	for _, child in ipairs(Workspace:GetDescendants()) do
+		if child:IsA("Model") and child.Name == "Sail Boat" then
+			return child
+		end
+	end
+	return nil
+end
+
+local function seatPlayer()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+	if not humanoid or not boatModel then
+		return
+	end
+
+	for _, desc in ipairs(boatModel:GetDescendants()) do
+		if desc:IsA("Seat") or desc:IsA("VehicleSeat") then
+			desc:Sit(humanoid)
+			return
+		end
+	end
+end
+
+local function updateBoatModel()
+	if not boatModel or not boatModel.PrimaryPart then
+		return
+	end
+
+	local pos = boat.position
+	local heading = boat.heading
+	local heelAngle = boat.heelAngle
+
+	local lookAt = pos + heading
+	local baseCF = CFrame.lookAt(pos, lookAt)
+	local heelCF = baseCF * CFrame.Angles(0, 0, math.rad(heelAngle))
+
+	boatModel:PivotTo(heelCF)
+end
+
 local function initBoat(boatType, mode)
 	currentBoatType = boatType
 	currentMode = mode
 	boat = BoatController.new(boatType, mode)
+
+	boatModel = findBoatModel()
+	if boatModel and boatModel.PrimaryPart then
+		local cf = boatModel.PrimaryPart.CFrame
+		boat.position = cf.Position
+		boat.heading = cf.LookVector
+	end
+
+	seatPlayer()
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -152,6 +207,8 @@ RunService.RenderStepped:Connect(function(dt)
 	boat.physics:setWind(windDirection, windSpeed)
 	boat:update(dt, currentWeather)
 
+	updateBoatModel()
+
 	BoatState.speed = boat.speed
 	BoatState.heading = boat.heading
 	BoatState.sailAngle = boat.mainSailAngle
@@ -194,7 +251,6 @@ remotes:WaitForChild("StartRace").OnClientEvent:Connect(function(data)
 		boat.position = data.position or boat.position
 	end
 end)
-
 
 local function setMode(mode)
 	currentMode = mode
