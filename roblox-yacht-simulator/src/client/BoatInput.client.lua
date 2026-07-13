@@ -182,8 +182,6 @@ remotes:WaitForChild("StartRace").OnClientEvent:Connect(function(data)
 	end
 end)
 
-remotes:WaitForChild("SelectMode").OnServerEvent = nil
-remotes:WaitForChild("SelectBoat").OnServerEvent = nil
 
 local function setMode(mode)
 	currentMode = mode

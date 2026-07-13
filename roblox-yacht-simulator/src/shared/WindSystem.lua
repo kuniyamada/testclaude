@@ -60,7 +60,7 @@ function WindSystem:getWindAtPosition(position: Vector3): (Vector3, number)
 end
 
 function WindSystem:setWeather(weatherName: string)
-	local Config = require(script.Parent.Config)
+	local Config = require(game:GetService("ReplicatedStorage").Config)
 	local weather = Config.Weather[weatherName]
 	if not weather then
 		return

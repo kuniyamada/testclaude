@@ -1,8 +1,8 @@
 local BoatController = {}
 BoatController.__index = BoatController
 
-local Config = require(script.Parent.Config)
-local SailPhysics = require(script.Parent.SailPhysics)
+local Config = require(game:GetService("ReplicatedStorage").Config)
+local SailPhysics = require(game:GetService("ReplicatedStorage").SailPhysics)
 
 function BoatController.new(boatType: string, mode: string)
 	local boatConfig = Config.Boats[boatType]

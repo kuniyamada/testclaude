@@ -1,7 +1,7 @@
 local CourseManager = {}
 CourseManager.__index = CourseManager
 
-local Config = require(script.Parent.Config)
+local Config = require(game:GetService("ReplicatedStorage").Config)
 
 function CourseManager.new(courseName: string)
 	local courseConfig = Config.Courses[courseName]

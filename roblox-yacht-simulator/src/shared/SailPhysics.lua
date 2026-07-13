@@ -1,7 +1,7 @@
 local SailPhysics = {}
 SailPhysics.__index = SailPhysics
 
-local Config = require(script.Parent.Config)
+local Config = require(game:GetService("ReplicatedStorage").Config)
 
 function SailPhysics.new()
 	local self = setmetatable({}, SailPhysics)
