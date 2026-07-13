@@ -20,10 +20,6 @@ function SailPhysics:calculateApparentWind(boatVelocity: Vector3): (Vector3, num
 	return apparentWind.Unit, mag
 end
 
-function SailPhysics:getWindAngle(boatHeading: Vector3): number
-	return math.deg(math.acos(math.clamp(self.windDirection:Dot(boatHeading), -1, 1)))
-end
-
 function SailPhysics:calculateSailForce(
 	boatHeading: Vector3,
 	boatVelocity: Vector3,
@@ -36,13 +32,15 @@ function SailPhysics:calculateSailForce(
 		return Vector3.zero
 	end
 
-	local windAngle = math.deg(math.acos(math.clamp(apparentWindDir:Dot(boatHeading), -1, 1)))
+	-- 風がどこから来るかの角度（0=正面から、180=後ろから）
+	local windFromDir = -apparentWindDir
+	local windAngleFromBow = math.deg(math.acos(math.clamp(windFromDir:Dot(boatHeading), -1, 1)))
 
 	local physics = Config.Physics
 
-	-- デッドゾーン: 風上約35度以内はほぼ進めない
-	if windAngle < 35 then
-		local deadZoneFactor = math.max(0, (windAngle - 15) / 20)
+	-- デッドゾーン: 風上35度以内は進めない（風に正面から向かっている）
+	if windAngleFromBow < 35 then
+		local deadZoneFactor = math.max(0, (windAngleFromBow - 15) / 20)
 		local tinyForce = deadZoneFactor * 0.1 * apparentWindSpeed * (boatConfig.maxSpeed / 60)
 		return boatHeading * tinyForce
 	end
@@ -72,27 +70,26 @@ function SailPhysics:calculateSailForce(
 
 	local totalAeroForce = liftDirection * liftMagnitude + apparentWindDir * dragMagnitude
 
-	-- キール/センターボード効果: 力を船首方向に変換し、横方向は大部分を抵抗
+	-- キール効果: 横方向の力の大部分をキールが抵抗する
 	local forwardComponent = totalAeroForce:Dot(boatHeading)
 	local lateralComponent = totalAeroForce - boatHeading * forwardComponent
-
-	-- 横方向の力の95%はキールが抵抗する（残り5%が横流れ leeway）
 	local keelResistance = 0.95
 	local effectiveForce = boatHeading * forwardComponent + lateralComponent * (1 - keelResistance)
 
-	-- 後進は大幅に制限（実際のヨットは後ろにほぼ進まない）
+	-- 後進を制限
 	local finalForward = effectiveForce:Dot(boatHeading)
 	if finalForward < 0 then
 		effectiveForce = effectiveForce - boatHeading * finalForward * 0.9
 	end
 
-	-- 風角度による効率カーブ（クローズホールド〜ランニング）
+	-- 風角度による効率カーブ
 	local efficiency = 1.0
-	if windAngle < 50 then
-		efficiency = 0.5 + (windAngle - 35) / 15 * 0.5
-	elseif windAngle > 150 then
-		-- ランニング（追い風）は効率が少し下がる
-		efficiency = 0.7 + (180 - windAngle) / 30 * 0.3
+	if windAngleFromBow < 50 then
+		-- クローズホールド（風上寄り）
+		efficiency = 0.5 + (windAngleFromBow - 35) / 15 * 0.5
+	elseif windAngleFromBow > 160 then
+		-- デッドラン（真追い風に近い）は少し効率低下
+		efficiency = 0.7 + (180 - windAngleFromBow) / 20 * 0.3
 	end
 
 	return effectiveForce * efficiency * (boatConfig.maxSpeed / 60)
@@ -130,7 +127,8 @@ end
 
 function SailPhysics:calculateOptimalSailAngle(boatHeading: Vector3, boatVelocity: Vector3): number
 	local apparentWindDir = self:calculateApparentWind(boatVelocity)
-	local windAngle = math.deg(math.acos(math.clamp(apparentWindDir:Dot(boatHeading), -1, 1)))
+	local windFromDir = -apparentWindDir
+	local windAngle = math.deg(math.acos(math.clamp(windFromDir:Dot(boatHeading), -1, 1)))
 
 	if windAngle < 45 then
 		return windAngle * 0.5
@@ -145,7 +143,8 @@ end
 
 function SailPhysics:isInIrons(boatHeading: Vector3, boatVelocity: Vector3): boolean
 	local apparentWindDir = self:calculateApparentWind(boatVelocity)
-	local angle = math.deg(math.acos(math.clamp(apparentWindDir:Dot(boatHeading), -1, 1)))
+	local windFromDir = -apparentWindDir
+	local angle = math.deg(math.acos(math.clamp(windFromDir:Dot(boatHeading), -1, 1)))
 	return angle < 35
 end
 
