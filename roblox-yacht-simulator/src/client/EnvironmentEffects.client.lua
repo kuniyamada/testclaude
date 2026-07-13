@@ -221,23 +221,26 @@ end
 
 local rainEmitter = createRainEffect()
 
-local remotes = ReplicatedStorage:WaitForChild("Remotes")
-remotes:WaitForChild("WeatherUpdate").OnClientEvent:Connect(function(data)
-	currentWeather = data.weather
-
-	local showRain = currentWeather == "Rain" or currentWeather == "Storm" or currentWeather == "Typhoon"
-	rainEmitter.Enabled = showRain
-
-	if showRain then
-		local rates = { Rain = 300, Storm = 800, Typhoon = 1500 }
-		rainEmitter.Rate = rates[currentWeather] or 300
-	end
-end)
-
 createWaterPlane()
 createSkybox()
 createAtmosphere()
 setupCourseEnvironment()
+
+local remotes = ReplicatedStorage:WaitForChild("Remotes")
+local weatherRemote = remotes:FindFirstChild("WeatherUpdate")
+if weatherRemote then
+	weatherRemote.OnClientEvent:Connect(function(data)
+		currentWeather = data.weather
+
+		local showRain = currentWeather == "Rain" or currentWeather == "Storm" or currentWeather == "Typhoon"
+		rainEmitter.Enabled = showRain
+
+		if showRain then
+			local rates = { Rain = 300, Storm = 800, Typhoon = 1500 }
+			rainEmitter.Rate = rates[currentWeather] or 300
+		end
+	end)
+end
 
 RunService.RenderStepped:Connect(function(dt)
 	animateWater(dt)
