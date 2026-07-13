@@ -1,11 +1,13 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 
 local Config = require(ReplicatedStorage.Config)
+local BoatState = require(ReplicatedStorage.BoatState)
 
 local function createColor(r, g, b)
 	return Color3.fromRGB(r, g, b)
@@ -354,6 +356,16 @@ end
 
 remotes:WaitForChild("RaceUpdate").OnClientEvent:Connect(function(data)
 	updateHUD(data)
+end)
+
+RunService.RenderStepped:Connect(function()
+	updateHUD({
+		speed = BoatState.speed,
+		windDirection = BoatState.windDirection,
+		windSpeed = BoatState.windSpeed,
+		sailAngle = BoatState.sailAngle,
+		heelAngle = BoatState.heelAngle,
+	})
 end)
 
 print("[YachtRaceSimulator] HUD initialized")

@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage.Config)
 local BoatController = require(ReplicatedStorage.BoatController)
 local SailPhysics = require(ReplicatedStorage.SailPhysics)
+local BoatState = require(ReplicatedStorage.BoatState)
 
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -150,6 +151,18 @@ RunService.RenderStepped:Connect(function(dt)
 
 	boat.physics:setWind(windDirection, windSpeed)
 	boat:update(dt, currentWeather)
+
+	BoatState.speed = boat.speed
+	BoatState.heading = boat.heading
+	BoatState.sailAngle = boat.mainSailAngle
+	BoatState.heelAngle = boat.heelAngle
+	BoatState.rudderAngle = boat.rudderAngle
+	BoatState.isTacking = boat.isTacking
+	BoatState.isJibing = boat.isJibing
+	BoatState.capsized = boat.capsized
+	BoatState.windDirection = windDirection
+	BoatState.windSpeed = windSpeed
+	BoatState.position = boat.position
 
 	updateTimer = updateTimer + dt
 	if updateTimer >= UPDATE_RATE then
