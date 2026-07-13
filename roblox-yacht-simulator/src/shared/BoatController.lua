@@ -115,6 +115,12 @@ function BoatController:update(dt: number, weather: { [string]: any })
 
 	local totalForce = sailForce + waterResistance
 	self.velocity = self.velocity + totalForce * dt
+
+	-- 速度をヘディング方向に強制（キール効果：横流れを最小限に）
+	local forwardSpeed = self.velocity:Dot(self.heading)
+	local lateralVelocity = self.velocity - self.heading * forwardSpeed
+	-- 横方向の速度を90%カット（残り10%がリーウェイ）
+	self.velocity = self.heading * math.max(forwardSpeed, 0) + lateralVelocity * 0.1
 	self.speed = self.velocity.Magnitude
 
 	local maxSpeed = self.boatConfig.maxSpeed * weather.windMultiplier

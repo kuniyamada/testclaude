@@ -13,7 +13,15 @@ end
 function SailPhysics:calculateApparentWind(boatVelocity: Vector3): (Vector3, number)
 	local trueWind = self.windDirection * self.windSpeed
 	local apparentWind = trueWind - boatVelocity
-	return apparentWind.Unit, apparentWind.Magnitude
+	local mag = apparentWind.Magnitude
+	if mag < 0.001 then
+		return Vector3.zero, 0
+	end
+	return apparentWind.Unit, mag
+end
+
+function SailPhysics:getWindAngle(boatHeading: Vector3): number
+	return math.deg(math.acos(math.clamp(self.windDirection:Dot(boatHeading), -1, 1)))
 end
 
 function SailPhysics:calculateSailForce(
@@ -24,12 +32,26 @@ function SailPhysics:calculateSailForce(
 ): Vector3
 	local apparentWindDir, apparentWindSpeed = self:calculateApparentWind(boatVelocity)
 
+	if apparentWindSpeed < 0.01 then
+		return Vector3.zero
+	end
+
+	local windAngle = math.deg(math.acos(math.clamp(apparentWindDir:Dot(boatHeading), -1, 1)))
+
+	local physics = Config.Physics
+
+	-- デッドゾーン: 風上約35度以内はほぼ進めない
+	if windAngle < 35 then
+		local deadZoneFactor = math.max(0, (windAngle - 15) / 20)
+		local tinyForce = deadZoneFactor * 0.1 * apparentWindSpeed * (boatConfig.maxSpeed / 60)
+		return boatHeading * tinyForce
+	end
+
 	local sailNormal = CFrame.Angles(0, math.rad(sailAngle), 0) * boatHeading
 	local angleOfAttack = math.acos(math.clamp(apparentWindDir:Dot(sailNormal), -1, 1))
 
 	local liftMagnitude = 0
 	local dragMagnitude = 0
-	local physics = Config.Physics
 
 	if angleOfAttack > math.rad(15) and angleOfAttack < math.rad(165) then
 		liftMagnitude = physics.liftCoefficient
@@ -41,15 +63,39 @@ function SailPhysics:calculateSailForce(
 		dragMagnitude = physics.dragCoefficient * physics.airDensity * apparentWindSpeed ^ 2 * 0.5
 	end
 
-	local liftDirection = apparentWindDir:Cross(Vector3.new(0, 1, 0)).Unit
-	local force = liftDirection * liftMagnitude + apparentWindDir * dragMagnitude
-
-	local forwardComponent = force:Dot(boatHeading)
-	if forwardComponent < 0 then
-		force = force - boatHeading * forwardComponent * 0.5
+	local liftDirection = apparentWindDir:Cross(Vector3.new(0, 1, 0))
+	if liftDirection.Magnitude > 0.001 then
+		liftDirection = liftDirection.Unit
+	else
+		liftDirection = Vector3.zero
 	end
 
-	return force * (boatConfig.maxSpeed / 60)
+	local totalAeroForce = liftDirection * liftMagnitude + apparentWindDir * dragMagnitude
+
+	-- キール/センターボード効果: 力を船首方向に変換し、横方向は大部分を抵抗
+	local forwardComponent = totalAeroForce:Dot(boatHeading)
+	local lateralComponent = totalAeroForce - boatHeading * forwardComponent
+
+	-- 横方向の力の95%はキールが抵抗する（残り5%が横流れ leeway）
+	local keelResistance = 0.95
+	local effectiveForce = boatHeading * forwardComponent + lateralComponent * (1 - keelResistance)
+
+	-- 後進は大幅に制限（実際のヨットは後ろにほぼ進まない）
+	local finalForward = effectiveForce:Dot(boatHeading)
+	if finalForward < 0 then
+		effectiveForce = effectiveForce - boatHeading * finalForward * 0.9
+	end
+
+	-- 風角度による効率カーブ（クローズホールド〜ランニング）
+	local efficiency = 1.0
+	if windAngle < 50 then
+		efficiency = 0.5 + (windAngle - 35) / 15 * 0.5
+	elseif windAngle > 150 then
+		-- ランニング（追い風）は効率が少し下がる
+		efficiency = 0.7 + (180 - windAngle) / 30 * 0.3
+	end
+
+	return effectiveForce * efficiency * (boatConfig.maxSpeed / 60)
 end
 
 function SailPhysics:calculateWaterResistance(velocity: Vector3, boatConfig: { [string]: any }): Vector3
@@ -73,8 +119,13 @@ function SailPhysics:calculateHeel(
 	boatConfig: { [string]: any }
 ): number
 	local lateralForce = sailForce - boatHeading * sailForce:Dot(boatHeading)
+	local crossDir = boatHeading:Cross(Vector3.new(0, 1, 0))
+	local heelSign = 1
+	if crossDir.Magnitude > 0.001 then
+		heelSign = lateralForce:Dot(crossDir) > 0 and 1 or -1
+	end
 	local heelAngle = math.deg(math.atan2(lateralForce.Magnitude, Config.Physics.gravity * boatConfig.stability * 100))
-	return math.clamp(heelAngle, -90, 90)
+	return math.clamp(heelAngle * heelSign, -90, 90)
 end
 
 function SailPhysics:calculateOptimalSailAngle(boatHeading: Vector3, boatVelocity: Vector3): number
@@ -95,7 +146,7 @@ end
 function SailPhysics:isInIrons(boatHeading: Vector3, boatVelocity: Vector3): boolean
 	local apparentWindDir = self:calculateApparentWind(boatVelocity)
 	local angle = math.deg(math.acos(math.clamp(apparentWindDir:Dot(boatHeading), -1, 1)))
-	return angle < 30
+	return angle < 35
 end
 
 function SailPhysics:calculateWaveEffect(position: Vector3, time: number, weather: { [string]: any }): Vector3
