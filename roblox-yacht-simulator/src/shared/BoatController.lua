@@ -113,21 +113,25 @@ function BoatController:update(dt: number, weather: { [string]: any })
 		sailForce = sailForce * (1 - Config.Physics.jibingPenalty)
 	end
 
-	local totalForce = sailForce + waterResistance
-	self.velocity = self.velocity + totalForce * dt
-
-	-- 速度をヘディング方向に強制（キール効果：横流れを最小限に）
-	local forwardSpeed = self.velocity:Dot(self.heading)
-	local lateralVelocity = self.velocity - self.heading * forwardSpeed
-	-- 横方向の速度を90%カット（残り10%がリーウェイ）
-	self.velocity = self.heading * math.max(forwardSpeed, 0) + lateralVelocity * 0.1
-	self.speed = self.velocity.Magnitude
-
-	local maxSpeed = self.boatConfig.maxSpeed * weather.windMultiplier
-	if self.speed > maxSpeed then
-		self.velocity = self.velocity.Unit * maxSpeed
-		self.speed = maxSpeed
+	-- セイルの力から前進方向の成分だけ取り出す
+	local forwardForce = sailForce:Dot(self.heading)
+	if forwardForce < 0 then
+		forwardForce = 0
 	end
+
+	-- 現在の前進スピード
+	self.speed = self.speed + forwardForce * dt
+
+	-- 水の抵抗で減速
+	local drag = Config.Physics.dragCoefficient * Config.Physics.waterDensity * self.speed ^ 2 * 0.5 / self.boatConfig.maxSpeed
+	self.speed = math.max(0, self.speed - drag * dt)
+
+	-- 最大速度制限
+	local maxSpeed = self.boatConfig.maxSpeed * weather.windMultiplier
+	self.speed = math.min(self.speed, maxSpeed)
+
+	-- ボートは常に船首方向にだけ進む
+	self.velocity = self.heading * self.speed
 
 	local waveEffect = self.physics:calculateWaveEffect(self.position, tick(), weather)
 	self.position = self.position + self.velocity * dt + waveEffect * dt
