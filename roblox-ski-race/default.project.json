@@ -19,6 +19,9 @@
         },
         "SkiAirControl": {
           "$path": "src/StarterPlayerScripts/SkiAirControl"
+        },
+        "SkiCamera": {
+          "$path": "src/StarterPlayerScripts/SkiCamera"
         }
       }
     },
