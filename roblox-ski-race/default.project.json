@@ -1,0 +1,37 @@
+{
+  "name": "SkiRaceGame",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "RaceSystem": {
+        "$path": "src/ServerScriptService/RaceSystem"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "RaceClient": {
+          "$path": "src/StarterPlayerScripts/RaceClient"
+        }
+      }
+    },
+
+    "StarterGui": {
+      "$className": "StarterGui",
+      "RaceHUD": {
+        "$path": "src/StarterGui/RaceHUD"
+      }
+    },
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "RaceRemotes": {
+        "$path": "src/ReplicatedStorage/RaceRemotes"
+      }
+    }
+  }
+}
