@@ -14,20 +14,13 @@
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
-        "RaceClient": {
-          "$path": "src/StarterPlayerScripts/RaceClient"
+        "RaceUI": {
+          "$path": "src/StarterPlayerScripts/RaceUI"
         }
       }
     },
 
-    "StarterGui": {
-      "$className": "StarterGui",
-      "RaceHUD": {
-        "$path": "src/StarterGui/RaceHUD"
-      }
-    },
-
-    "ReplicatedStorage": {
+"ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "RaceRemotes": {
         "$path": "src/ReplicatedStorage/RaceRemotes"
