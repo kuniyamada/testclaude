@@ -659,6 +659,10 @@ local function startCountdownAndRace()
 		end
 	end
 
+	for _, racer in ipairs(racerList) do
+		setStatus(racer, "AtStart")
+	end
+
 	raceEvent:FireAllClients(
 		"Countdown",
 		{

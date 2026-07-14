@@ -4,18 +4,13 @@
 --
 -- カービングスキー版
 --
+-- レース中のみスキー操作を有効化
+-- レース外は通常の歩行
+--
 -- A・左矢印：左カービング
 -- D・右矢印：右カービング
 -- W・上矢印：前傾して摩擦を減らす
 -- S・下矢印：強くブレーキ
---
--- カービング計算
--- ・スキーのサイドカット
--- ・エッジ角
--- ・速度による荷重
--- ・斜面角度
--- ・スキーのたわみ
--- から実効旋回半径を計算します。
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -31,97 +26,58 @@ local ANIMATION_IDS = {
 }
 
 local CONFIG = {
-	--------------------------------------------------
-	-- 基本設定
-	--------------------------------------------------
-
 	GroundRayLength = 8,
 
 	StartSpeed = 0,
 	MaxSpeed = 100,
 	StopSpeed = 0.8,
 
-	--------------------------------------------------
-	-- 雪面摩擦
-	--------------------------------------------------
-
 	DynamicFriction = 0.06,
 	StaticFriction = 0.08,
 	TuckFriction = 0.045,
 	BrakeFriction = 0.32,
 
-	-- 横滑り時の抵抗
 	SideSlipFriction = 0.06,
 
-	--------------------------------------------------
-	-- カービングスキー
-	--------------------------------------------------
-
-	-- スキーの基準サイドカット半径
-	-- 小さくすると、より小回りになります
 	BaseSidecutRadius = 200,
 
-	-- 最大エッジ角
 	MaximumEdgeAngle = math.rad(68),
 
-	-- キー入力からエッジ角が付く速さ
 	EdgeEngagementSpeed = 8,
 
-	-- キーを離したときに板がフラットへ戻る速さ
 	EdgeReleaseSpeed = 5,
 
-	-- カービングが効き始める速度
 	MinimumCarveSpeed = 4,
 
-	-- この速度でカービング効果が最大になる
 	FullCarveSpeed = 55,
 
-	-- 最低速時にも少し曲がれる補助
 	LowSpeedSteeringRate = math.rad(45),
 
-	-- 最大旋回角速度
 	MaximumTurnRate = math.rad(150),
 
-	--------------------------------------------------
-	-- スキーのたわみ
-	--------------------------------------------------
-
-	-- 板の柔らかさ
-	-- 大きいほど荷重で強く曲がります
 	SkiFlexibility = 0.72,
 
-	-- 速度によるたわみ
 	SpeedFlexAmount = 0.72,
 
-	-- 斜面角度によるたわみ
 	SlopeFlexAmount = 0.25,
 
-	-- カービング入力によるたわみ
 	EdgeFlexAmount = 0.45,
 
-	-- たわみによる旋回半径短縮量
 	FlexTurnGain = 1.10,
 
-	-- たわみの変化速度
 	FlexResponseSpeed = 6,
 
-	--------------------------------------------------
-	-- カービング中の減速
-	--------------------------------------------------
-
-	-- 深いターンほど増える抵抗
 	CarveDrag = 0.035,
 
-	-- 急激なエッジ操作による抵抗
 	EdgeChangeDrag = 0.018,
-
-	--------------------------------------------------
-	-- アニメーション
-	--------------------------------------------------
 
 	PoseBlendSpeed = 7,
 	MinimumTurnPoseStrength = 0.7,
 }
+
+--------------------------------------------------
+-- 入力
+--------------------------------------------------
 
 local inputState = {
 	left = false,
@@ -144,6 +100,39 @@ local keyToAction = {
 	[Enum.KeyCode.Down] = "brake",
 }
 
+local function updateInput(
+	inputObject,
+	isPressed
+)
+	local actionName =
+		keyToAction[inputObject.KeyCode]
+
+	if actionName then
+		inputState[actionName] = isPressed
+	end
+end
+
+UserInputService.InputBegan:Connect(
+	function(inputObject, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
+		updateInput(inputObject, true)
+	end
+)
+
+UserInputService.InputEnded:Connect(
+	function(inputObject)
+		updateInput(inputObject, false)
+	end
+)
+
+--------------------------------------------------
+-- 状態
+--------------------------------------------------
+
+local skiModeActive = false
 local activeSimulationConnection = nil
 
 local animationTracks = {
@@ -154,36 +143,41 @@ local animationTracks = {
 
 local currentPoseBlend = 0
 
-local function updateInput(inputObject, isPressed)
-	local actionName = keyToAction[inputObject.KeyCode]
+local currentCharacter = nil
+local currentHumanoid = nil
+local currentRootPart = nil
 
-	if actionName then
-		inputState[actionName] = isPressed
-	end
-end
+local alignOrientation = nil
+local raycastParams = nil
 
-UserInputService.InputBegan:Connect(function(
-	inputObject,
-	gameProcessed
+local heading = Vector3.new(0, 0, -1)
+local speed = 0
+local initialDownhillChosen = false
+local currentEdgeInput = 0
+local currentFlex = 0
+local previousEdgeInput = 0
+
+--------------------------------------------------
+-- 補助関数
+--------------------------------------------------
+
+local function getSmoothAlpha(
+	smoothSpeed,
+	deltaTime
 )
-	if gameProcessed then
-		return
-	end
-
-	updateInput(inputObject, true)
-end)
-
-UserInputService.InputEnded:Connect(function(inputObject)
-	updateInput(inputObject, false)
-end)
-
-local function getSmoothAlpha(speed, deltaTime)
-	return 1 - math.exp(-speed * deltaTime)
+	return 1
+	- math.exp(
+		-smoothSpeed * deltaTime
+	)
 end
 
 local function lerpNumber(a, b, alpha)
 	return a + (b - a) * alpha
 end
+
+--------------------------------------------------
+-- アニメーション
+--------------------------------------------------
 
 local function stopAnimationTracks()
 	for _, track in pairs(animationTracks) do
@@ -197,81 +191,21 @@ local function stopAnimationTracks()
 	animationTracks.Right = nil
 end
 
-local function createOrientationController(rootPart)
-	local oldAttachment =
-		rootPart:FindFirstChild("SkiControlAttachment")
-
-	if oldAttachment then
-		oldAttachment:Destroy()
-	end
-
-	local oldAlignOrientation =
-		rootPart:FindFirstChild("SkiAlignOrientation")
-
-	if oldAlignOrientation then
-		oldAlignOrientation:Destroy()
-	end
-
-	local attachment = Instance.new("Attachment")
-	attachment.Name = "SkiControlAttachment"
-	attachment.Parent = rootPart
-
-	local alignOrientation = Instance.new("AlignOrientation")
-	alignOrientation.Name = "SkiAlignOrientation"
-
-	alignOrientation.Mode =
-		Enum.OrientationAlignmentMode.OneAttachment
-
-	alignOrientation.Attachment0 = attachment
-	alignOrientation.RigidityEnabled = false
-
-	alignOrientation.Responsiveness = 35
-
-	alignOrientation.MaxTorque = 100000000
-	alignOrientation.MaxAngularVelocity = 35
-	alignOrientation.Parent = rootPart
-
-	return alignOrientation
-end
-
-local function stopDefaultAnimations(character, humanoid)
-	local animateScript =
-		character:WaitForChild("Animate", 5)
-
-	if animateScript
-		and animateScript:IsA("LocalScript") then
-
-		animateScript.Enabled = false
-	end
-
-	local animator =
-		humanoid:FindFirstChildOfClass("Animator")
-
-	if not animator then
-		animator = Instance.new("Animator")
-		animator.Parent = humanoid
-	end
-
-	for _, track in ipairs(
-		animator:GetPlayingAnimationTracks()
-		) do
-		track:Stop(0.1)
-	end
-
-	return animator
-end
-
 local function loadAnimationTrack(
 	animator,
 	animationName,
 	animationId
 )
-	local animation = Instance.new("Animation")
+	local animation =
+		Instance.new("Animation")
+
 	animation.Name = animationName
 	animation.AnimationId = animationId
 
 	local success, result = pcall(function()
-		return animator:LoadAnimation(animation)
+		return animator:LoadAnimation(
+			animation
+		)
 	end)
 
 	if not success then
@@ -419,7 +353,77 @@ local function updateAnimationWeights(
 	end
 end
 
-local function setupCharacter(character)
+--------------------------------------------------
+-- AlignOrientation
+--------------------------------------------------
+
+local function createOrientationController()
+	local rootPart = currentRootPart
+
+	local oldAttachment =
+		rootPart:FindFirstChild(
+			"SkiControlAttachment"
+		)
+
+	if oldAttachment then
+		oldAttachment:Destroy()
+	end
+
+	local oldAlignOrientation =
+		rootPart:FindFirstChild(
+			"SkiAlignOrientation"
+		)
+
+	if oldAlignOrientation then
+		oldAlignOrientation:Destroy()
+	end
+
+	local attachment =
+		Instance.new("Attachment")
+
+	attachment.Name =
+		"SkiControlAttachment"
+
+	attachment.Parent = rootPart
+
+	local ao =
+		Instance.new("AlignOrientation")
+
+	ao.Name =
+		"SkiAlignOrientation"
+
+	ao.Mode =
+		Enum.OrientationAlignmentMode
+		.OneAttachment
+
+	ao.Attachment0 = attachment
+	ao.RigidityEnabled = false
+
+	ao.Responsiveness = 35
+
+	ao.MaxTorque = 100000000
+	ao.MaxAngularVelocity = 35
+	ao.Parent = rootPart
+
+	return ao
+end
+
+--------------------------------------------------
+-- スキーモード開始
+--------------------------------------------------
+
+local function enterSkiMode()
+	if skiModeActive then
+		return
+	end
+
+	if not currentCharacter
+		or not currentHumanoid
+		or not currentRootPart then
+
+		return
+	end
+
 	if activeSimulationConnection then
 		activeSimulationConnection:Disconnect()
 		activeSimulationConnection = nil
@@ -427,52 +431,58 @@ local function setupCharacter(character)
 
 	stopAnimationTracks()
 
-	local humanoid =
-		character:WaitForChild("Humanoid")
+	local animateScript =
+		currentCharacter:FindFirstChild(
+			"Animate"
+		)
 
-	local rootPart =
-		character:WaitForChild("HumanoidRootPart")
+	if animateScript
+		and animateScript:IsA("LocalScript") then
 
-	if humanoid.RigType
-		~= Enum.HumanoidRigType.R15 then
-
-		warn("このスキーシステムはR15用です。")
+		animateScript.Enabled = false
 	end
 
 	local animator =
-		stopDefaultAnimations(
-			character,
-			humanoid
-		)
+		currentHumanoid
+		:FindFirstChildOfClass("Animator")
+
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = currentHumanoid
+	end
+
+	for _, track in ipairs(
+		animator:GetPlayingAnimationTracks()
+		) do
+		track:Stop(0.1)
+	end
 
 	setupSkiAnimations(animator)
 
-	humanoid.AutoRotate = false
-	humanoid.WalkSpeed = 0
-	humanoid.JumpPower = 0
-	humanoid.JumpHeight = 0
+	currentHumanoid.AutoRotate = false
+	currentHumanoid.WalkSpeed = 0
+	currentHumanoid.JumpPower = 0
+	currentHumanoid.JumpHeight = 0
 
-	local alignOrientation =
-		createOrientationController(rootPart)
+	alignOrientation =
+		createOrientationController()
 
-	local raycastParams = RaycastParams.new()
+	raycastParams = RaycastParams.new()
 
 	raycastParams.FilterType =
 		Enum.RaycastFilterType.Exclude
 
 	raycastParams.FilterDescendantsInstances = {
-		character,
+		currentCharacter,
 	}
 
 	raycastParams.IgnoreWater = true
 
 	local flatForward = Vector3.new(
-		rootPart.CFrame.LookVector.X,
+		currentRootPart.CFrame.LookVector.X,
 		0,
-		rootPart.CFrame.LookVector.Z
+		currentRootPart.CFrame.LookVector.Z
 	)
-
-	local heading
 
 	if flatForward.Magnitude > 0.01 then
 		heading = flatForward.Unit
@@ -480,28 +490,43 @@ local function setupCharacter(character)
 		heading = Vector3.new(0, 0, -1)
 	end
 
-	local speed = CONFIG.StartSpeed
-	local initialDownhillChosen = false
+	speed = CONFIG.StartSpeed
+	initialDownhillChosen = false
+	currentEdgeInput = 0
+	currentFlex = 0
+	previousEdgeInput = 0
 
-	local currentEdgeInput = 0
+	skiModeActive = true
+end
 
-	local currentFlex = 0
+--------------------------------------------------
+-- 物理シミュレーション開始
+--------------------------------------------------
 
-	local previousEdgeInput = 0
+local function startSimulation()
+	if activeSimulationConnection then
+		return
+	end
+
+	if not skiModeActive then
+		return
+	end
 
 	activeSimulationConnection =
 		RunService.PreSimulation:Connect(
 			function(deltaTime)
-				if not character.Parent
-					or not rootPart.Parent
-					or humanoid.Health <= 0 then
+				if not currentCharacter
+					or not currentCharacter.Parent
+					or not currentRootPart
+					or not currentRootPart.Parent
+					or currentHumanoid.Health <= 0 then
 
 					return
 				end
 
 				local raycastResult =
 				Workspace:Raycast(
-					rootPart.Position,
+					currentRootPart.Position,
 					Vector3.new(
 						0,
 						-CONFIG.GroundRayLength,
@@ -921,7 +946,8 @@ local function setupCharacter(character)
 				-- 移動と身体方向
 				--------------------------------------------------
 
-				rootPart.AssemblyLinearVelocity =
+				currentRootPart
+				.AssemblyLinearVelocity =
 				heading * speed
 
 				alignOrientation.CFrame =
@@ -934,13 +960,132 @@ local function setupCharacter(character)
 		)
 end
 
+--------------------------------------------------
+-- スキーモード終了
+--------------------------------------------------
+
+local function exitSkiMode()
+	if not skiModeActive then
+		return
+	end
+
+	if activeSimulationConnection then
+		activeSimulationConnection:Disconnect()
+		activeSimulationConnection = nil
+	end
+
+	stopAnimationTracks()
+
+	if currentCharacter then
+		local animateScript =
+			currentCharacter:FindFirstChild(
+				"Animate"
+			)
+
+		if animateScript
+			and animateScript:IsA(
+				"LocalScript"
+			) then
+
+			animateScript.Enabled = true
+		end
+	end
+
+	if currentRootPart then
+		local oldAttachment =
+			currentRootPart:FindFirstChild(
+				"SkiControlAttachment"
+			)
+
+		if oldAttachment then
+			oldAttachment:Destroy()
+		end
+
+		local oldAlign =
+			currentRootPart:FindFirstChild(
+				"SkiAlignOrientation"
+			)
+
+		if oldAlign then
+			oldAlign:Destroy()
+		end
+	end
+
+	if currentHumanoid then
+		currentHumanoid.AutoRotate = true
+		currentHumanoid.WalkSpeed = 16
+		currentHumanoid.JumpPower = 50
+		currentHumanoid.JumpHeight = 7.2
+	end
+
+	alignOrientation = nil
+	skiModeActive = false
+end
+
+--------------------------------------------------
+-- RaceStatus監視
+--------------------------------------------------
+
+local function onStatusChanged(character)
+	local status =
+		character:GetAttribute(
+			"RaceStatus"
+		)
+
+	if status == "AtStart" then
+		enterSkiMode()
+
+	elseif status == "Racing" then
+		if not skiModeActive then
+			enterSkiMode()
+		end
+
+		startSimulation()
+
+	else
+		exitSkiMode()
+	end
+end
+
+--------------------------------------------------
+-- キャラクター設定
+--------------------------------------------------
+
+local function onCharacterAdded(character)
+	currentCharacter = character
+
+	currentHumanoid =
+		character:WaitForChild("Humanoid")
+
+	currentRootPart =
+		character:WaitForChild(
+			"HumanoidRootPart"
+		)
+
+	if currentHumanoid.RigType
+		~= Enum.HumanoidRigType.R15 then
+
+		warn("このスキーシステムはR15用です。")
+	end
+
+	character
+		:GetAttributeChangedSignal(
+			"RaceStatus"
+		)
+		:Connect(function()
+			onStatusChanged(character)
+		end)
+
+	onStatusChanged(character)
+end
+
 if player.Character then
 	task.spawn(
-		setupCharacter,
+		onCharacterAdded,
 		player.Character
 	)
 end
 
 player.CharacterAdded:Connect(
-	setupCharacter
+	onCharacterAdded
 )

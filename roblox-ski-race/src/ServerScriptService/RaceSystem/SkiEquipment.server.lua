@@ -2,45 +2,36 @@
 -- └─ SkiEquipment
 --
 -- R15キャラクターの左右の足に
--- スキー板を自動装着するスクリプト
+-- スキー板を装着するスクリプト
+--
+-- レース開始時（AtStart/Racing）に装着
+-- レース終了時に取り外す
 
 local Players = game:GetService("Players")
 
 local CONFIG = {
-	-- スキー板の大きさ
-	-- X = 横幅
-	-- Y = 厚さ
-	-- Z = 長さ
 	BoardSize = Vector3.new(
 		0.9,
 		0.14,
 		5.6
 	),
 
-	-- スキー板の色
 	BoardColor = Color3.fromRGB(
 		225,
 		35,
 		55
 	),
 
-	-- スキー板の素材
 	BoardMaterial =
 		Enum.Material.SmoothPlastic,
 
-	-- 足に対する前後位置
-	-- マイナスにすると前へ移動
 	ForwardOffset = -0.45,
 
-	-- 足の裏との隙間
-	-- 大きくすると板が少し上へ移動
 	VerticalAdjustment = 0.03,
 
-	-- 影を表示するか
 	CastShadow = false,
 }
 
--- 片方の足にスキー板を作る
 local function createSki(
 	foot,
 	equipmentFolder,
@@ -59,20 +50,15 @@ local function createSki(
 
 	ski.Anchored = true
 
-	-- キャラクターの当たり判定へ
-	-- 影響させない
 	ski.CanCollide = false
 	ski.CanTouch = false
 	ski.CanQuery = false
 
-	-- キャラクターの重さへ
-	-- 影響させない
 	ski.Massless = true
 
 	ski.CastShadow =
 		CONFIG.CastShadow
 
-	-- 足のすぐ下へ配置する
 	local verticalOffset =
 		-(
 			foot.Size.Y / 2
@@ -91,7 +77,6 @@ local function createSki(
 	ski.Parent =
 		equipmentFolder
 
-	-- 足とスキー板を固定する
 	local weld =
 		Instance.new("WeldConstraint")
 
@@ -102,72 +87,50 @@ local function createSki(
 	weld.Part1 = ski
 	weld.Parent = ski
 
-	-- 固定後に動けるようにする
 	ski.Anchored = false
 
 	return ski
 end
 
--- キャラクターへスキー板を装着する
 local function attachSkis(character)
 	local humanoid =
-		character:WaitForChild(
-			"Humanoid",
-			10
+		character:FindFirstChildOfClass(
+			"Humanoid"
 		)
 
 	if not humanoid then
-		warn(
-			"Humanoidが見つかりません：",
-			character.Name
-		)
-
 		return
 	end
 
-	-- 今回はR15専用
 	if humanoid.RigType
 		~= Enum.HumanoidRigType.R15 then
-
-		warn(
-			"スキー板はR15専用です：",
-			character.Name
-		)
 
 		return
 	end
 
 	local leftFoot =
-		character:WaitForChild(
-			"LeftFoot",
-			10
+		character:FindFirstChild(
+			"LeftFoot"
 		)
 
 	local rightFoot =
-		character:WaitForChild(
-			"RightFoot",
-			10
+		character:FindFirstChild(
+			"RightFoot"
 		)
 
 	if not leftFoot
 		or not rightFoot then
 
-		warn(
-			"左右の足が見つかりません：",
-			character.Name
-		)
-
 		return
 	end
 
-	-- 二重に装着されないように削除
 	local oldEquipment =
 		character:FindFirstChild(
 			"SkiEquipment"
 		)
 
 	if oldEquipment then
-		oldEquipment:Destroy()
+		return
 	end
 
 	local equipmentFolder =
@@ -192,32 +155,78 @@ local function attachSkis(character)
 	)
 end
 
--- プレイヤーごとの設定
+local function removeSkis(character)
+	local equipment =
+		character:FindFirstChild(
+			"SkiEquipment"
+		)
+
+	if equipment then
+		equipment:Destroy()
+	end
+end
+
+local function onStatusChanged(character)
+	local status =
+		character:GetAttribute(
+			"RaceStatus"
+		)
+
+	if status == "AtStart"
+		or status == "Racing" then
+
+		attachSkis(character)
+	else
+		removeSkis(character)
+	end
+end
+
 local function setupPlayer(player)
+	local function onCharacter(character)
+		character:WaitForChild(
+			"Humanoid",
+			10
+		)
+
+		character:WaitForChild(
+			"LeftFoot",
+			10
+		)
+
+		character:WaitForChild(
+			"RightFoot",
+			10
+		)
+
+		character
+			:GetAttributeChangedSignal(
+				"RaceStatus"
+			)
+			:Connect(function()
+				onStatusChanged(character)
+			end)
+
+		onStatusChanged(character)
+	end
+
 	player.CharacterAdded:Connect(
-		function(character)
-			attachSkis(character)
-		end
+		onCharacter
 	)
 
-	-- スクリプト起動時に
-	-- すでにキャラクターがいる場合
 	if player.Character then
 		task.spawn(
-			attachSkis,
+			onCharacter,
 			player.Character
 		)
 	end
 end
 
--- すでに参加しているプレイヤー
 for _, player in ipairs(
 	Players:GetPlayers()
 	) do
 	setupPlayer(player)
 end
 
--- 後から参加したプレイヤー
 Players.PlayerAdded:Connect(
 	setupPlayer
 )
