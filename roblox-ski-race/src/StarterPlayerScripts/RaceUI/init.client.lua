@@ -2,6 +2,7 @@
 -- └─ RaceUI
 --
 -- 複数人レース用の最小UI
+-- カウントダウン・ロビー待機タイマー対応
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -205,6 +206,15 @@ raceEvent.OnClientEvent:Connect(
 				return
 			end
 
+			local countdownText = ""
+
+			if (data.countdown or 0) > 0 then
+				countdownText =
+					"  ("
+					.. tostring(data.countdown)
+					.. "秒後に開始)"
+			end
+
 			statusLabel.Text =
 				"参加者 "
 				.. tostring(data.count or 0)
@@ -213,6 +223,7 @@ raceEvent.OnClientEvent:Connect(
 					data.minimumPlayers or 2
 				)
 				.. "人以上で開始"
+				.. countdownText
 
 		elseif action == "JoinedQueue" then
 			statusLabel.Text =
@@ -225,6 +236,42 @@ raceEvent.OnClientEvent:Connect(
 		elseif action == "QueueFull" then
 			statusLabel.Text =
 				"レースは満員です"
+
+		elseif action == "Countdown" then
+			racing = false
+
+			timerLabel.Text =
+				"00:00.000"
+
+			statusLabel.Text =
+				"スタート準備中..."
+
+			positionLabel.Text =
+				tostring(
+					data.racerCount or 0
+				) .. "人参加"
+
+			resultLabel.Visible = false
+
+		elseif action == "CountdownTick" then
+			local remaining =
+				data.remaining or 0
+
+			resultLabel.Text =
+				tostring(remaining)
+
+			resultLabel.TextColor3 =
+				Color3.fromRGB(
+					255,
+					255,
+					80
+				)
+
+			resultLabel.Visible = true
+
+			statusLabel.Text =
+				tostring(remaining)
+				.. "秒後にスタート"
 
 		elseif action == "RaceStarted" then
 			racing = true
@@ -240,7 +287,7 @@ raceEvent.OnClientEvent:Connect(
 			positionLabel.Text = ""
 
 			resultLabel.Text =
-				"START!"
+				"GO!"
 
 			resultLabel.TextColor3 =
 				Color3.fromRGB(

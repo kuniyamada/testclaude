@@ -4,13 +4,15 @@
 -- スキー操作には一切触れない複数人レース
 --
 -- ・JoinZoneに2人以上入ると同時スタート
--- ・キャラクターを移動しない
+-- ・カウントダウン後にスタート位置へテレポート
+-- ・キャラクターを移動しない（テレポート以外）
 -- ・Anchoredを変更しない
 -- ・WalkSpeedを変更しない
 -- ・NetworkOwnerを変更しない
 -- ・共通サーバー時刻から計測
 -- ・リアルタイム順位
 -- ・Finish通過順で最終順位
+-- ・結果表示後に自動で次のラウンドへ
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,13 +21,21 @@ local Workspace = game:GetService("Workspace")
 
 local CONFIG = {
 	MinimumPlayers = 2,
-	MaximumPlayers = 8,
+	MaximumPlayers = 20,
 
 	CheckInterval = 0.03,
 	RankingInterval = 0.25,
 
 	MaxRaceTime = 300,
 	ResultsDuration = 8,
+
+	CountdownSeconds = 3,
+
+	LobbyWaitAfterMinimum = 5,
+
+	StartSpacing = 4,
+
+	AutoNextRound = true,
 
 	Debug = true,
 }
@@ -45,6 +55,9 @@ local finishPart =
 
 local checkpointsFolder =
 	raceCourse:WaitForChild("Checkpoints")
+
+local startPart =
+	raceCourse:FindFirstChild("Start")
 
 --------------------------------------------------
 -- RemoteEvent
@@ -165,6 +178,9 @@ local race = {
 
 	startTime = 0,
 	finishCount = 0,
+
+	lobbyTimerStarted = false,
+	lobbyTimerTime = 0,
 }
 
 --------------------------------------------------
@@ -400,12 +416,100 @@ local function getValidQueuedPlayers()
 end
 
 --------------------------------------------------
+-- スタート位置計算
+--------------------------------------------------
+
+local function getStartPositions(count)
+	local positions = {}
+
+	if not startPart then
+		return positions
+	end
+
+	local startCFrame = startPart.CFrame
+	local rightVector = startCFrame.RightVector
+
+	local totalWidth =
+		(count - 1) * CONFIG.StartSpacing
+
+	local startOffset =
+		-totalWidth / 2
+
+	for i = 1, count do
+		local offset =
+			startOffset
+			+ (i - 1) * CONFIG.StartSpacing
+
+		local position =
+			startCFrame.Position
+			+ rightVector * offset
+			+ Vector3.new(0, 3, 0)
+
+		table.insert(
+			positions,
+			CFrame.new(
+				position,
+				position
+					+ startCFrame.LookVector
+			)
+		)
+	end
+
+	return positions
+end
+
+--------------------------------------------------
+-- テレポート
+--------------------------------------------------
+
+local function teleportToStart(
+	player,
+	targetCFrame
+)
+	local character = player.Character
+
+	if not character then
+		return
+	end
+
+	local rootPart =
+		character:FindFirstChild(
+			"HumanoidRootPart"
+		)
+
+	if not rootPart then
+		return
+	end
+
+	rootPart.AssemblyLinearVelocity =
+		Vector3.zero
+
+	rootPart.AssemblyAngularVelocity =
+		Vector3.zero
+
+	rootPart.CFrame = targetCFrame
+end
+
+--------------------------------------------------
 -- ロビー情報
 --------------------------------------------------
 
 local function broadcastLobby()
 	race.queuedPlayers =
 		getValidQueuedPlayers()
+
+	local remaining = 0
+
+	if race.lobbyTimerStarted then
+		remaining = math.max(
+			0,
+			CONFIG.LobbyWaitAfterMinimum
+			- (
+				Workspace:GetServerTimeNow()
+				- race.lobbyTimerTime
+			)
+		)
+	end
 
 	raceEvent:FireAllClients(
 		"LobbyStatus",
@@ -416,6 +520,7 @@ local function broadcastLobby()
 			maximumPlayers =
 				CONFIG.MaximumPlayers,
 			phase = race.phase,
+			countdown = math.ceil(remaining),
 		}
 	)
 end
@@ -495,14 +600,23 @@ local function leaveQueue(player)
 		{}
 	)
 
+	local validPlayers =
+		getValidQueuedPlayers()
+
+	if #validPlayers
+		< CONFIG.MinimumPlayers then
+
+		race.lobbyTimerStarted = false
+	end
+
 	broadcastLobby()
 end
 
 --------------------------------------------------
--- レース開始
+-- カウントダウン＋レース開始
 --------------------------------------------------
 
-local function startRace()
+local function startCountdownAndRace()
 	if race.phase ~= "Lobby" then
 		return
 	end
@@ -516,13 +630,7 @@ local function startRace()
 		return
 	end
 
-	race.id += 1
-	race.phase = "Racing"
-	race.finishCount = 0
-	race.racers = {}
-
-	race.startTime =
-		Workspace:GetServerTimeNow()
+	race.phase = "Countdown"
 
 	local racerCount =
 		math.min(
@@ -530,10 +638,62 @@ local function startRace()
 			CONFIG.MaximumPlayers
 		)
 
-	for index = 1, racerCount do
-		local player =
-			validPlayers[index]
+	local racerList = {}
 
+	for index = 1, racerCount do
+		table.insert(
+			racerList,
+			validPlayers[index]
+		)
+	end
+
+	local startPositions =
+		getStartPositions(racerCount)
+
+	if startPart and #startPositions > 0 then
+		for index, racer in ipairs(racerList) do
+			teleportToStart(
+				racer,
+				startPositions[index]
+			)
+		end
+	end
+
+	raceEvent:FireAllClients(
+		"Countdown",
+		{
+			seconds = CONFIG.CountdownSeconds,
+			racerCount = racerCount,
+		}
+	)
+
+	for remaining =
+		CONFIG.CountdownSeconds, 1, -1 do
+
+		raceEvent:FireAllClients(
+			"CountdownTick",
+			{
+				remaining = remaining,
+			}
+		)
+
+		task.wait(1)
+	end
+
+	if race.phase ~= "Countdown" then
+		return
+	end
+
+	race.id += 1
+	race.phase = "Racing"
+	race.finishCount = 0
+	race.racers = {}
+	race.lobbyTimerStarted = false
+
+	race.startTime =
+		Workspace:GetServerTimeNow()
+
+	for _, player in ipairs(racerList) do
 		local state =
 			playerStates[player]
 
@@ -882,6 +1042,52 @@ local function markDNF(player, reason)
 end
 
 --------------------------------------------------
+-- ラウンドリセット
+--------------------------------------------------
+
+local function resetToLobby()
+	if race.phase ~= "Results" then
+		return
+	end
+
+	for _, player in ipairs(
+		race.racers
+		) do
+		local state =
+			playerStates[player]
+
+		if state then
+			state.status = "Waiting"
+			state.queued = false
+			state.raceId = 0
+			state.startTime = 0
+			state.finishTime = nil
+			state.finishPlace = nil
+			state.nextCheckpoint = 1
+
+			setStatus(
+				player,
+				"Waiting"
+			)
+
+			raceEvent:FireClient(
+				player,
+				"RaceReset",
+				{}
+			)
+		end
+	end
+
+	race.phase = "Lobby"
+	race.racers = {}
+	race.startTime = 0
+	race.finishCount = 0
+	race.lobbyTimerStarted = false
+
+	broadcastLobby()
+end
+
+--------------------------------------------------
 -- レース終了
 --------------------------------------------------
 
@@ -919,46 +1125,7 @@ local function checkRaceComplete()
 
 	task.delay(
 		CONFIG.ResultsDuration,
-		function()
-			if race.phase ~= "Results" then
-				return
-			end
-
-			for _, player in ipairs(
-				race.racers
-				) do
-				local state =
-					playerStates[player]
-
-				if state then
-					state.status = "Waiting"
-					state.queued = false
-					state.raceId = 0
-					state.startTime = 0
-					state.finishTime = nil
-					state.finishPlace = nil
-					state.nextCheckpoint = 1
-
-					setStatus(
-						player,
-						"Waiting"
-					)
-
-					raceEvent:FireClient(
-						player,
-						"RaceReset",
-						{}
-					)
-				end
-			end
-
-			race.phase = "Lobby"
-			race.racers = {}
-			race.startTime = 0
-			race.finishCount = 0
-
-			broadcastLobby()
-		end
+		resetToLobby
 	)
 end
 
@@ -1198,6 +1365,15 @@ Players.PlayerRemoving:Connect(function(player)
 
 	playerStates[player] = nil
 
+	local validPlayers =
+		getValidQueuedPlayers()
+
+	if #validPlayers
+		< CONFIG.MinimumPlayers then
+
+		race.lobbyTimerStarted = false
+	end
+
 	broadcastLobby()
 	checkRaceComplete()
 end)
@@ -1231,7 +1407,25 @@ RunService.Heartbeat:Connect(function(deltaTime)
 			if #validPlayers
 				>= CONFIG.MinimumPlayers then
 
-				startRace()
+				if not race.lobbyTimerStarted then
+					race.lobbyTimerStarted = true
+					race.lobbyTimerTime =
+						Workspace:GetServerTimeNow()
+				end
+
+				local elapsed =
+					Workspace:GetServerTimeNow()
+					- race.lobbyTimerTime
+
+				if elapsed
+					>= CONFIG.LobbyWaitAfterMinimum then
+
+					task.spawn(
+						startCountdownAndRace
+					)
+				end
+			else
+				race.lobbyTimerStarted = false
 			end
 
 		elseif race.phase == "Racing" then
