@@ -20,7 +20,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local CONFIG = {
-	MinimumPlayers = 2,
+	MinimumPlayers = 1,
 	MaximumPlayers = 20,
 
 	CheckInterval = 0.03,
