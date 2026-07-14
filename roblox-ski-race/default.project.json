@@ -22,6 +22,9 @@
         },
         "SkiCamera": {
           "$path": "src/StarterPlayerScripts/SkiCamera"
+        },
+        "SkiController": {
+          "$path": "src/StarterPlayerScripts/SkiController"
         }
       }
     },
