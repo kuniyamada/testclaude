@@ -16,6 +16,9 @@
         "$className": "StarterPlayerScripts",
         "RaceUI": {
           "$path": "src/StarterPlayerScripts/RaceUI"
+        },
+        "SkiAirControl": {
+          "$path": "src/StarterPlayerScripts/SkiAirControl"
         }
       }
     },
