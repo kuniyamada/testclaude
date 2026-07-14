@@ -884,7 +884,8 @@ local function broadcastRankings()
 		local state = playerStates[player]
 
 		if state
-			and state.raceId == race.id then
+			and state.raceId == race.id
+			and state.status ~= "Disqualified" then
 
 			table.insert(
 				entries,
@@ -958,6 +959,36 @@ end
 -- ゴール
 --------------------------------------------------
 
+local function teleportNearJoinZone(player)
+	local character = player.Character
+
+	if not character then
+		return
+	end
+
+	local rootPart =
+		character:FindFirstChild(
+			"HumanoidRootPart"
+		)
+
+	if not rootPart then
+		return
+	end
+
+	local spawnPosition =
+		joinZone.CFrame.Position
+		+ Vector3.new(0, 5, 0)
+
+	rootPart.AssemblyLinearVelocity =
+		Vector3.zero
+
+	rootPart.AssemblyAngularVelocity =
+		Vector3.zero
+
+	rootPart.CFrame =
+		CFrame.new(spawnPosition)
+end
+
 local function finishPlayer(player)
 	local state = playerStates[player]
 
@@ -989,6 +1020,10 @@ local function finishPlayer(player)
 		}
 	)
 
+	task.delay(2, function()
+		teleportNearJoinZone(player)
+	end)
+
 	broadcastRankings()
 end
 
@@ -1016,6 +1051,10 @@ local function disqualifyPlayer(player)
 		}
 	)
 
+	task.delay(2, function()
+		teleportNearJoinZone(player)
+	end)
+
 	broadcastRankings()
 end
 
@@ -1041,6 +1080,10 @@ local function markDNF(player, reason)
 			reason = reason,
 		}
 	)
+
+	task.delay(2, function()
+		teleportNearJoinZone(player)
+	end)
 
 	broadcastRankings()
 end
