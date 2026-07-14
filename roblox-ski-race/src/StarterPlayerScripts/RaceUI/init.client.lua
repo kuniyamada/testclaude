@@ -1,13 +1,11 @@
 -- StarterPlayerScripts
 -- └─ RaceUI
 --
--- 複数人レース用の最小UI
--- カウントダウン・ロビー待機タイマー対応
+-- 複数人レース用UI
+-- タイマーなし・順位重視
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -51,7 +49,7 @@ frame.Position =
 	UDim2.fromScale(0.5, 0.03)
 
 frame.Size =
-	UDim2.fromOffset(430, 145)
+	UDim2.fromOffset(430, 110)
 
 frame.BackgroundColor3 =
 	Color3.fromRGB(15, 20, 30)
@@ -68,35 +66,37 @@ corner.CornerRadius =
 
 corner.Parent = frame
 
-local timerLabel =
+-- 順位表示（大きく）
+local positionLabel =
 	Instance.new("TextLabel")
 
-timerLabel.BackgroundTransparency = 1
-timerLabel.Position =
+positionLabel.BackgroundTransparency = 1
+positionLabel.Position =
 	UDim2.fromOffset(10, 5)
 
-timerLabel.Size =
-	UDim2.new(1, -20, 0, 55)
+positionLabel.Size =
+	UDim2.new(1, -20, 0, 60)
 
-timerLabel.Font =
-	Enum.Font.GothamBold
+positionLabel.Font =
+	Enum.Font.GothamBlack
 
-timerLabel.TextColor3 =
-	Color3.fromRGB(255, 255, 255)
+positionLabel.TextColor3 =
+	Color3.fromRGB(255, 220, 80)
 
-timerLabel.TextScaled = true
-timerLabel.Text = "00:00.000"
-timerLabel.Parent = frame
+positionLabel.TextScaled = true
+positionLabel.Text = ""
+positionLabel.Parent = frame
 
+-- ステータス表示
 local statusLabel =
 	Instance.new("TextLabel")
 
 statusLabel.BackgroundTransparency = 1
 statusLabel.Position =
-	UDim2.fromOffset(10, 65)
+	UDim2.fromOffset(10, 70)
 
 statusLabel.Size =
-	UDim2.new(1, -20, 0, 34)
+	UDim2.new(1, -20, 0, 30)
 
 statusLabel.Font =
 	Enum.Font.GothamMedium
@@ -110,26 +110,7 @@ statusLabel.Text =
 
 statusLabel.Parent = frame
 
-local positionLabel =
-	Instance.new("TextLabel")
-
-positionLabel.BackgroundTransparency = 1
-positionLabel.Position =
-	UDim2.fromOffset(10, 103)
-
-positionLabel.Size =
-	UDim2.new(1, -20, 0, 30)
-
-positionLabel.Font =
-	Enum.Font.GothamBold
-
-positionLabel.TextColor3 =
-	Color3.fromRGB(255, 220, 80)
-
-positionLabel.TextScaled = true
-positionLabel.Text = ""
-positionLabel.Parent = frame
-
+-- 画面中央の大きな結果表示
 local resultLabel =
 	Instance.new("TextLabel")
 
@@ -159,27 +140,10 @@ resultLabel.Parent = screenGui
 --------------------------------------------------
 
 local racing = false
-local startTime = 0
 
 --------------------------------------------------
--- 時間
+-- 順位テキスト
 --------------------------------------------------
-
-local function formatTime(seconds)
-	seconds = math.max(seconds, 0)
-
-	local minutes =
-		math.floor(seconds / 60)
-
-	local remainder =
-		seconds - minutes * 60
-
-	return string.format(
-		"%02d:%06.3f",
-		minutes,
-		remainder
-	)
-end
 
 local function ordinal(place)
 	if place == 1 then
@@ -225,6 +189,8 @@ raceEvent.OnClientEvent:Connect(
 				.. "人以上で開始"
 				.. countdownText
 
+			positionLabel.Text = ""
+
 		elseif action == "JoinedQueue" then
 			statusLabel.Text =
 				"参加登録済み・他の選手を待っています"
@@ -239,9 +205,6 @@ raceEvent.OnClientEvent:Connect(
 
 		elseif action == "Countdown" then
 			racing = false
-
-			timerLabel.Text =
-				"00:00.000"
 
 			statusLabel.Text =
 				"スタート準備中..."
@@ -275,11 +238,6 @@ raceEvent.OnClientEvent:Connect(
 
 		elseif action == "RaceStarted" then
 			racing = true
-			startTime =
-				data.startTime or 0
-
-			timerLabel.Text =
-				"00:00.000"
 
 			statusLabel.Text =
 				"レース中"
@@ -321,27 +279,27 @@ raceEvent.OnClientEvent:Connect(
 					== player.UserId then
 
 					positionLabel.Text =
-						"現在 "
-						.. ordinal(entry.place)
+						ordinal(entry.place)
 						.. " / "
 						.. tostring(#entries)
+						.. "人中"
 				end
 			end
 
 		elseif action == "Finished" then
 			racing = false
 
-			timerLabel.Text =
-				formatTime(data.time)
+			positionLabel.Text =
+				ordinal(data.place)
+				.. " ゴール！"
 
 			statusLabel.Text =
-				ordinal(data.place)
-				.. "でゴール"
+				tostring(data.totalRacers or 0)
+				.. "人中 "
+				.. ordinal(data.place)
 
 			resultLabel.Text =
 				ordinal(data.place)
-				.. "\n"
-				.. formatTime(data.time)
 
 			resultLabel.TextColor3 =
 				Color3.fromRGB(
@@ -354,6 +312,8 @@ raceEvent.OnClientEvent:Connect(
 
 		elseif action == "Disqualified" then
 			racing = false
+
+			positionLabel.Text = ""
 
 			statusLabel.Text =
 				"チェックポイント未通過"
@@ -372,6 +332,8 @@ raceEvent.OnClientEvent:Connect(
 
 		elseif action == "DNF" then
 			racing = false
+
+			positionLabel.Text = ""
 
 			statusLabel.Text = "DNF"
 
@@ -395,10 +357,6 @@ raceEvent.OnClientEvent:Connect(
 
 		elseif action == "RaceReset" then
 			racing = false
-			startTime = 0
-
-			timerLabel.Text =
-				"00:00.000"
 
 			statusLabel.Text =
 				"JoinZoneへ入ってください"
@@ -408,19 +366,3 @@ raceEvent.OnClientEvent:Connect(
 		end
 	end
 )
-
---------------------------------------------------
--- タイマー
---------------------------------------------------
-
-RunService.RenderStepped:Connect(function()
-	if not racing or startTime <= 0 then
-		return
-	end
-
-	timerLabel.Text =
-		formatTime(
-			Workspace:GetServerTimeNow()
-			- startTime
-		)
-end)
