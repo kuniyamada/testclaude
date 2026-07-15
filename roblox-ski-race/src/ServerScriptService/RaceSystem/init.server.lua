@@ -27,6 +27,7 @@ local CONFIG = {
 	RankingInterval = 0.25,
 
 	MaxRaceTime = 300,
+	FinishGracePeriod = 30,
 	ResultsDuration = 8,
 
 	CountdownSeconds = 3,
@@ -181,6 +182,8 @@ local race = {
 
 	lobbyTimerStarted = false,
 	lobbyTimerTime = 0,
+
+	firstFinishTime = nil,
 }
 
 --------------------------------------------------
@@ -1008,6 +1011,11 @@ local function finishPlayer(player)
 		Workspace:GetServerTimeNow()
 	- race.startTime
 
+	if not race.firstFinishTime then
+		race.firstFinishTime =
+			Workspace:GetServerTimeNow()
+	end
+
 	setStatus(player, "Finished")
 
 	raceEvent:FireClient(
@@ -1130,6 +1138,7 @@ local function resetToLobby()
 	race.startTime = 0
 	race.finishCount = 0
 	race.lobbyTimerStarted = false
+	race.firstFinishTime = nil
 
 	broadcastLobby()
 end
@@ -1235,20 +1244,35 @@ local function updatePlayer(player)
 	if state.status == "Racing"
 		and state.raceId == race.id then
 
-		local elapsed =
+		local now =
 			Workspace:GetServerTimeNow()
-		- race.startTime
+
+		local elapsed =
+			now - race.startTime
 
 		if elapsed >= CONFIG.MaxRaceTime then
-			markDNF(
-				player,
-				"TimeOut"
-			)
+			disqualifyPlayer(player)
 
 			state.lastPosition =
 				currentPosition
 
 			return
+		end
+
+		if race.firstFinishTime then
+			local sincFirstFinish =
+				now - race.firstFinishTime
+
+			if sincFirstFinish
+				>= CONFIG.FinishGracePeriod then
+
+				disqualifyPlayer(player)
+
+				state.lastPosition =
+					currentPosition
+
+				return
+			end
 		end
 
 		updateCheckpoint(
