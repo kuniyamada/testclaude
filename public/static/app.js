@@ -156,6 +156,34 @@ function setupEventListeners() {
       loadMonthlyReport(e.target.value);
     }
   });
+
+  // Roblox連携モーダル
+  const robloxBtn = document.getElementById('robloxBtn');
+  const robloxModal = document.getElementById('robloxModal');
+  const closeRobloxBtn = document.getElementById('closeRobloxBtn');
+
+  if (robloxBtn && robloxModal) {
+    robloxBtn.addEventListener('click', () => {
+      robloxModal.classList.remove('hidden');
+      loadRobloxStatus();
+    });
+    closeRobloxBtn?.addEventListener('click', () => {
+      robloxModal.classList.add('hidden');
+    });
+    robloxModal.addEventListener('click', (e) => {
+      if (e.target === robloxModal) robloxModal.classList.add('hidden');
+    });
+  }
+
+  const linkRobloxBtn = document.getElementById('linkRobloxBtn');
+  if (linkRobloxBtn) {
+    linkRobloxBtn.addEventListener('click', linkRoblox);
+  }
+
+  const unlinkRobloxBtn = document.getElementById('unlinkRobloxBtn');
+  if (unlinkRobloxBtn) {
+    unlinkRobloxBtn.addEventListener('click', unlinkRoblox);
+  }
 }
 
 // ログイン処理
@@ -1193,6 +1221,67 @@ async function loadMonthlyReport(yearMonth) {
   } catch (error) {
     console.error('月別レポート読み込みエラー:', error);
     container.innerHTML = '<div class="text-center py-8 text-red-500">読み込みに失敗しました</div>';
+  }
+}
+
+// Roblox連携状態の読み込み
+async function loadRobloxStatus() {
+  if (!currentUser) return;
+  try {
+    const res = await axios.get(`/api/roblox/status/${currentUser.id}`);
+    const data = res.data;
+    const linked = document.getElementById('robloxLinked');
+    const notLinked = document.getElementById('robloxNotLinked');
+
+    if (data.linked) {
+      notLinked.classList.add('hidden');
+      linked.classList.remove('hidden');
+      document.getElementById('linkedRobloxId').textContent = data.roblox_user_id;
+      document.getElementById('linkedRobloxName').textContent = data.roblox_username || '未設定';
+    } else {
+      linked.classList.add('hidden');
+      notLinked.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('Roblox状態読み込みエラー:', error);
+  }
+}
+
+// Robloxアカウント紐付け
+async function linkRoblox() {
+  if (!currentUser) return;
+  const robloxUserId = document.getElementById('robloxUserIdInput').value.trim();
+  const robloxUsername = document.getElementById('robloxUsernameInput').value.trim();
+
+  if (!robloxUserId) {
+    alert('Roblox ユーザーIDを入力してください');
+    return;
+  }
+
+  try {
+    await axios.post('/api/roblox/link', {
+      user_id: currentUser.id,
+      roblox_user_id: robloxUserId,
+      roblox_username: robloxUsername || null,
+    });
+    alert('Robloxアカウントを連携しました！');
+    loadRobloxStatus();
+  } catch (error) {
+    alert(error.response?.data?.error || 'Roblox連携に失敗しました');
+  }
+}
+
+// Roblox連携解除
+async function unlinkRoblox() {
+  if (!currentUser) return;
+  if (!confirm('Roblox連携を解除しますか？')) return;
+
+  try {
+    await axios.post('/api/roblox/unlink', { user_id: currentUser.id });
+    alert('Roblox連携を解除しました');
+    loadRobloxStatus();
+  } catch (error) {
+    alert(error.response?.data?.error || '連携解除に失敗しました');
   }
 }
 

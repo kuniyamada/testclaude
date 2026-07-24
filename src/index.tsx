@@ -11,6 +11,7 @@ import companytreeRoute from './routes/companytree';
 import monthlyRoute from './routes/monthly';
 import gardenRoute from './routes/garden';
 import adminRoute from './routes/admin';
+import robloxRoute from './routes/roblox';
 
 type Bindings = {
   DB: D1Database;
@@ -33,6 +34,7 @@ app.route('/api/companytree', companytreeRoute);
 app.route('/api/monthly', monthlyRoute);
 app.route('/api/garden', gardenRoute);
 app.route('/api/admin', adminRoute);
+app.route('/api/roblox', robloxRoute);
 
 // ヘルスチェック
 app.get('/api/health', (c) => {
@@ -265,6 +267,9 @@ app.get('/', (c) => {
               <span>⭐</span>
               <span id="totalPoints" class="font-bold text-sm">0</span>
             </div>
+            <button id="robloxBtn" class="bg-white/20 rounded-full p-2" title="Roblox連携">
+              <i class="fas fa-gamepad text-sm"></i>
+            </button>
             <button id="helpBtn" class="bg-white/20 rounded-full p-2" title="ルール説明">
               <i class="fas fa-question-circle text-sm"></i>
             </button>
@@ -566,6 +571,78 @@ app.get('/', (c) => {
     </div>
   </div>
   
+  <!-- Roblox連携モーダル -->
+  <div id="robloxModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto shadow-2xl">
+      <div class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-4 rounded-t-2xl sticky top-0">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold flex items-center gap-2">
+            <span><i class="fas fa-gamepad"></i></span> Roblox連携
+          </h2>
+          <button id="closeRobloxBtn" class="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/30">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-4 space-y-4">
+        <div id="robloxNotLinked">
+          <div class="bg-blue-50 rounded-xl p-4 border-2 border-blue-200 text-center">
+            <div class="text-4xl mb-2"><i class="fas fa-gamepad text-blue-400"></i></div>
+            <h3 class="font-bold text-blue-700 mb-2">Robloxと連携しよう！</h3>
+            <p class="text-sm text-blue-600 mb-4">
+              RobloxアカウントをThanks Gardenと紐付けると、Robloxゲーム内でポイントやツリーを確認できます。
+            </p>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-blue-700 font-semibold mb-1 text-left text-sm">Roblox ユーザーID</label>
+                <input id="robloxUserIdInput" type="text" class="cute-input w-full text-sm" placeholder="例: 123456789">
+              </div>
+              <div>
+                <label class="block text-blue-700 font-semibold mb-1 text-left text-sm">Roblox ユーザー名（任意）</label>
+                <input id="robloxUsernameInput" type="text" class="cute-input w-full text-sm" placeholder="例: Player1">
+              </div>
+              <button id="linkRobloxBtn" class="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold py-3 rounded-xl">
+                <i class="fas fa-link"></i> 連携する
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="robloxLinked" class="hidden">
+          <div class="bg-green-50 rounded-xl p-4 border-2 border-green-200 text-center">
+            <div class="text-4xl mb-2"><i class="fas fa-check-circle text-green-500"></i></div>
+            <h3 class="font-bold text-green-700 mb-1">連携済み</h3>
+            <p class="text-sm text-green-600 mb-1">Roblox ID: <span id="linkedRobloxId" class="font-mono font-bold"></span></p>
+            <p class="text-sm text-green-600 mb-3">ユーザー名: <span id="linkedRobloxName" class="font-bold"></span></p>
+            <button id="unlinkRobloxBtn" class="bg-red-100 text-red-600 font-semibold py-2 px-4 rounded-xl text-sm border border-red-200">
+              <i class="fas fa-unlink"></i> 連携解除
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-indigo-50 rounded-xl p-4 border-2 border-indigo-200">
+          <h3 class="font-bold text-indigo-700 mb-2 flex items-center gap-2">
+            <span><i class="fas fa-code"></i></span> 開発者向け
+          </h3>
+          <p class="text-sm text-indigo-600 mb-2">Roblox Studio から以下のAPIを利用できます：</p>
+          <div class="space-y-1 text-xs font-mono bg-white rounded-lg p-3 border border-indigo-200 overflow-x-auto">
+            <div class="text-gray-500">-- ユーザーデータ取得</div>
+            <div>GET /api/roblox/user/{robloxUserId}</div>
+            <div class="text-gray-500 mt-2">-- ランキング取得</div>
+            <div>GET /api/roblox/leaderboard</div>
+            <div class="text-gray-500 mt-2">-- 庭の状態取得</div>
+            <div>GET /api/roblox/garden</div>
+            <div class="text-gray-500 mt-2">-- タイムライン取得</div>
+            <div>GET /api/roblox/timeline</div>
+            <div class="text-gray-500 mt-2">-- ゲーム内から感謝を送る</div>
+            <div>POST /api/roblox/send-thanks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="/static/garden.js?v=4"></script>
