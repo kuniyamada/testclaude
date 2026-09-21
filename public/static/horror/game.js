@@ -184,11 +184,26 @@ const dctx = darkCv.getContext('2d');
 
 function fit() {
   const help = document.getElementById('help');
-  const hh = (help && !document.body.classList.contains('touch')) ? help.offsetHeight + 16 : 0;
-  const s = Math.min(window.innerWidth / W, (window.innerHeight - hh) / H);
+  const touch = document.body.classList.contains('touch');
+  const wrap = document.getElementById('wrap');
+  const hh = (help && !touch) ? help.offsetHeight + 16 : 0;
+  // 表示領域は #wrap の実寸から取る（埋め込み表示やセーフエリアの余白でも下が切れないように）
+  const availW = wrap ? wrap.clientWidth : window.innerWidth;
+  let availH = wrap ? wrap.clientHeight : window.innerHeight;
+  if (window.visualViewport) availH = Math.min(availH, window.visualViewport.height);
+  const portrait = availH > availW;
+  let top = 0, reserve = 0;
+  if (touch) {
+    if (portrait) { top = 40; reserve = 40; }      // 上部ボタンの下に置き、下にボタン領域を残す
+    else reserve = 0;
+  }
+  const s = Math.min(availW / W, (availH - hh - top - reserve) / H);
   canvas.style.width = Math.floor(W * s) + 'px';
   canvas.style.height = Math.floor(H * s) + 'px';
+  canvas.style.marginTop = touch ? top + 'px' : '0';
+  if (touchApi) touchApi.layout();
 }
+let touchApi = null; // タッチ操作モジュール（定義後に代入。fit() から配置を更新するため）
 window.addEventListener('resize', fit);
 window.addEventListener('orientationchange', () => setTimeout(fit, 100));
 if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
@@ -276,8 +291,17 @@ const Touch = (() => {
   const state = [0, 1, 2, 3].map(() => ({ left: false, right: false, jump: false }));
   const root = document.getElementById('touch');
   const padsEl = document.getElementById('touch-pads');
-  let on = false, built = 0;
-  const api = { state, get on() { return on; }, tap: null, build, show, enable };
+  let on = false, built = '';
+  // 'split': 左手で ◀▶、右手で ▲（標準）  'cluster': プレイヤーごとに ◀ ▶ ▲ をまとめて左右に置く
+  let mode = 'split';
+  try { const m = localStorage.getItem('horror.padMode'); if (m === 'cluster' || m === 'split') mode = m; } catch (_) {}
+  const api = { state, get on() { return on; }, get mode() { return mode; }, tap: null, build, show, enable, layout, toggleMode };
+
+  function toggleMode() {
+    mode = mode === 'split' ? 'cluster' : 'split';
+    try { localStorage.setItem('horror.padMode', mode); } catch (_) {}
+    built = ''; build(G.numPlayers);
+  }
 
   function enable() {
     if (on || !root) return;
@@ -285,19 +309,60 @@ const Touch = (() => {
     document.body.classList.add('touch');
     fit();
     wireTop();
+    window.addEventListener('resize', layout);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', layout);
   }
   // 各プレイヤーのボタン群。左右の端・中段に置き、床にある扉や鍵を隠さない
   function build(n) {
-    if (!on || !padsEl || built === n) return;
-    built = n;
+    const key = mode + n;
+    if (!on || !padsEl || built === key) return;
+    built = key;
     padsEl.innerHTML = '';
-    for (let i = 0; i < n; i++) {
+    const mk = (i, cls, inner) => {
       const pad = document.createElement('div');
-      pad.className = `pad ${i % 2 ? 'right' : 'left'} row${Math.floor(i / 2)}`;
+      pad.className = `pad ${cls}`; pad.dataset.p = i;
       pad.style.setProperty('--pc', COLORS[i]);
-      pad.innerHTML = `<div class="tag">${i + 1}P</div><div class="btn jump" data-a="jump">▲</div><div class="btn" data-a="left">◀</div><div class="btn" data-a="right">▶</div>`;
-      padsEl.appendChild(pad);
-      wirePad(pad, i);
+      pad.innerHTML = `<div class="tag">${i + 1}P</div>` + inner;
+      padsEl.appendChild(pad); wirePad(pad, i); return pad;
+    };
+    for (let i = 0; i < n; i++) {
+      if (mode === 'split') {
+        mk(i, 'move', '<div class="btn" data-a="left">◀</div><div class="btn" data-a="right">▶</div>');
+        mk(i, 'jumponly', '<div class="btn jump" data-a="jump">▲</div>');
+      } else {
+        mk(i, 'cluster', '<div class="btn jump" data-a="jump">▲</div><div class="btn" data-a="left">◀</div><div class="btn" data-a="right">▶</div>');
+      }
+    }
+    layout();
+  }
+  // キャンバスの実寸に合わせてボタンを配置する。横向きは画面の左右端、縦向きはキャンバスの下
+  function layout() {
+    if (!on || !padsEl) return;
+    const r = canvas.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const portrait = vh > vw;
+    const pads = Array.from(padsEl.children);
+    const place = (el, left, top) => { el.style.left = Math.round(left) + 'px'; el.style.top = Math.round(top) + 'px'; };
+    for (const el of pads) {
+      const i = +el.dataset.p;
+      const isJump = el.classList.contains('jumponly'), isMove = el.classList.contains('move');
+      // 非表示中（display:none）は実寸が 0 になるので CSS と同じ既定値を使う
+      const w = el.offsetWidth || (isJump ? 84 : isMove ? 128 : 118), h = el.offsetHeight || (isJump ? 84 : isMove ? 62 : 118);
+      if (mode === 'split') {
+        const row = i; // 1P が一番下、2P 以降はその上
+        if (portrait) {
+          const rowTop = r.bottom + 22 + row * 100;
+          place(el, isJump ? vw - 12 - w : 12, rowTop + (isJump ? 0 : 11));
+        } else {
+          const bottom = Math.min(r.bottom, vh) - 10;
+          place(el, isJump ? vw - 8 - w : 8, bottom - h - row * 96);
+        }
+      } else {
+        const row = Math.floor(i / 2), right = i % 2 === 1;
+        if (portrait) place(el, right ? vw - 12 - w : 12, r.bottom + 22 + row * 130);
+        else place(el, right ? vw - 6 - w : 6, Math.min(r.bottom, vh) - 10 - h - row * 128);
+      }
+      void isMove;
     }
   }
   function wirePad(pad, i) {
@@ -340,7 +405,9 @@ const Touch = (() => {
   }
   function show(visible) {
     if (!root) return;
+    const wasHidden = root.classList.contains('hidden');
     root.classList.toggle('hidden', !on || !visible);
+    if (wasHidden && !root.classList.contains('hidden')) layout(); // 表示された直後に実寸で再配置
     const pb = document.getElementById('tb-pause');
     if (pb) pb.textContent = G.paused ? '▶' : 'Ⅱ';
   }
@@ -350,6 +417,7 @@ const Touch = (() => {
   return api;
 })();
 
+touchApi = Touch;
 fit();
 
 // 画面タップ（タイトルの人数変更・開始、クリア画面の進行）
@@ -700,8 +768,9 @@ function updateTitle(tap) {
   let dec = pressed.ArrowLeft || pressed.KeyA || pressed.Digit2, inc = pressed.ArrowRight || pressed.KeyD || pressed.Digit3 || pressed.Digit4;
   let start = pressed.Enter || pressed.Space || pressed.KeyW || pressed.ArrowUp || anyPadPressedLatched(0);
   if (tap) {
-    // 「◀ プレイ人数 ▶」の行をタップで人数変更。それ以外の場所をタップで開始
+    // 「◀ プレイ人数 ▶」の行をタップで人数変更、「ボタン配置」の行をタップで切替。それ以外の場所をタップで開始
     if (tap.y > 200 && tap.y < 340) { if (tap.x < W / 2 - 40) dec = true; else if (tap.x > W / 2 + 40) inc = true; }
+    else if (Touch.on && tap.y >= 418 && tap.y <= 448) Touch.toggleMode();
     else if (tap.y >= 340) start = true;
   }
   if (dec) G.numPlayers = pressed.Digit2 ? 2 : Math.max(2, G.numPlayers - 1);
@@ -1094,18 +1163,23 @@ function drawTitle() {
   }
   ctx.font = `13px ${FONT_UI}`; ctx.fillStyle = 'rgba(190,180,200,0.85)';
   if (Touch.on) {
-    ctx.fillText('画面の左右に出るボタンで操作（1P・3P は左、2P・4P は右）。スマホは横向き推奨', W / 2, 360);
-    ctx.fillText('◀ ▶ を押したまま指を ▲ へ滑らせると、進みながらジャンプできる', W / 2, 380);
+    ctx.fillText('スマホは横向き推奨。1P のボタンが一番下、2P 以降はその上に並ぶ', W / 2, 360);
+    ctx.fillText(Touch.mode === 'split' ? '左手で ◀ ▶ 移動、右手で ▲ ジャンプ' : '◀ ▶ を押したまま指を ▲ へ滑らせると、進みながらジャンプできる', W / 2, 380);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(W / 2 - 200, 418, 400, 30);
+    ctx.fillStyle = '#e8e0ea'; ctx.font = `bold 14px ${FONT_UI}`;
+    ctx.fillText(`ボタン配置: ${Touch.mode === 'split' ? '左手 移動 ／ 右手 ジャンプ' : 'プレイヤーごとにまとめる'}　（タップで切替）`, W / 2, 439);
+    ctx.font = `13px ${FONT_UI}`;
   } else for (let i = 0; i < 4; i++) {
     ctx.fillStyle = i < G.numPlayers ? COLORS[i] : 'rgba(120,110,130,0.5)';
     ctx.fillText(`${i + 1}P  ${CONTROLS[i].label}`, W / 2 - 300 + i * 200, 360);
   }
   ctx.fillStyle = 'rgba(190,180,200,0.7)'; ctx.font = `13px ${FONT_UI}`;
-  ctx.fillText('仲間の頭に乗れる。光を向けている間だけ「アレ」は止まる。誰か一人でも欠けたら、全員でやり直し。', W / 2, Touch.on ? 410 : 400);
+  ctx.fillStyle = 'rgba(190,180,200,0.7)';
+  ctx.fillText('仲間の頭に乗れる。光を向けている間だけ「アレ」は止まる。誰か一人でも欠けたら、全員でやり直し。', W / 2, Touch.on ? 405 : 400);
   if (Math.floor(G.titleT * 1.5) % 2 === 0) {
     ctx.fillStyle = '#efe6d8'; ctx.font = `bold 18px ${FONT_UI}`;
     const focused = document.hasFocus ? document.hasFocus() : true;
-    ctx.fillText(Touch.on ? '画面をタップではじめる' : (focused ? 'Enter / Space ではじめる' : '画面をクリックしてから Enter / Space ではじめる'), W / 2, 460);
+    ctx.fillText(Touch.on ? '画面をタップではじめる' : (focused ? 'Enter / Space ではじめる' : '画面をクリックしてから Enter / Space ではじめる'), W / 2, Touch.on ? 478 : 460);
   }
   ctx.fillStyle = 'rgba(120,110,130,0.6)'; ctx.font = `11px ${FONT_UI}`;
   ctx.fillText(Touch.on ? '◀ ▶ をタップで人数変更　音量にご注意ください' : '← → で人数変更　M で音の切替　音量にご注意ください', W / 2, 500);

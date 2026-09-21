@@ -23,7 +23,7 @@ body.touch {
   touch-action: none;
   overscroll-behavior: none;
 }
-body.touch #wrap { gap: 0; }
+body.touch #wrap { gap: 0; justify-content: flex-start; }
 body.touch #help { display: none; }
 #game {
   display: block;
@@ -60,6 +60,7 @@ body.touch #help { display: none; }
 }
 
 /* ---------------- タッチ操作 ---------------- */
+/* ボタンの位置は game.js がキャンバスの実寸から計算して left/top を指定する */
 #touch { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
 #touch.hidden { display: none; }
 #touch-top {
@@ -73,20 +74,20 @@ body.touch #help { display: none; }
 }
 #touch-top button:active, #touch-top button.on { background: rgba(120,60,80,0.7); }
 .pad {
-  position: absolute; width: 118px; height: 118px; pointer-events: auto; touch-action: none;
-  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; padding: 6px; box-sizing: border-box;
+  position: absolute; pointer-events: auto; touch-action: none; box-sizing: border-box;
+  display: grid; gap: 6px; padding: 6px;
 }
-.pad.left { left: max(6px, env(safe-area-inset-left)); }
-.pad.right { right: max(6px, env(safe-area-inset-right)); }
-.pad.row0 { bottom: 12%; }
-.pad.row1 { bottom: calc(12% + 126px); }
+.pad.cluster { width: 118px; height: 118px; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.pad.cluster .btn.jump { grid-column: 1 / span 2; }
+.pad.move { width: 128px; height: 62px; grid-template-columns: 1fr 1fr; }
+.pad.jumponly { width: 84px; height: 84px; grid-template-columns: 1fr; }
+.pad.jumponly .btn { border-radius: 50%; font-size: 26px; }
 .pad .btn {
   border-radius: 12px; border: 2px solid var(--pc, #999);
   background: rgba(20,15,28,0.35); color: var(--pc, #ccc);
   display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold;
   box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
-.pad .btn.jump { grid-column: 1 / span 2; }
 .pad .btn.on { background: var(--pc, #999); color: #000; }
 .pad .tag {
   position: absolute; top: -14px; left: 8px; font-size: 11px; font-weight: bold; color: var(--pc, #ccc);
@@ -96,15 +97,4 @@ body.touch #help { display: none; }
   display: none; position: fixed; top: 42px; left: 50%; transform: translateX(-50%); white-space: nowrap;
   padding: 6px 12px; border-radius: 6px; background: rgba(20,15,28,0.8); color: #d8d0e0; font-size: 12px; z-index: 20;
 }
-/* 縦向き: 画面を上に寄せ、ボタンは下の空き領域に置く */
-@media (orientation: portrait) {
-  body.touch #rotate-hint { display: block; }
-  body.touch #wrap { justify-content: flex-start; padding-top: 70px; box-sizing: border-box; }
-  body.touch .pad.row0 { bottom: 5%; }
-  body.touch .pad.row1 { bottom: calc(5% + 126px); }
-}
-@media (max-height: 420px) {
-  .pad { width: 104px; height: 104px; }
-  .pad.row1 { bottom: calc(12% + 110px); }
-  .pad .btn { font-size: 18px; }
-}
+@media (orientation: portrait) { body.touch #rotate-hint { display: block; } }
