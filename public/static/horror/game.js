@@ -354,6 +354,10 @@ canvas.addEventListener('pointerdown', (e) => {
   Touch.tap = canvasPoint(e);
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// 埋め込み表示（iframe）でもキー入力が届くように、クリックでキャンバスにフォーカスを与える
+canvas.tabIndex = 0;
+canvas.addEventListener('pointerdown', () => { try { canvas.focus({ preventScroll: true }); } catch (_) { canvas.focus(); } });
+window.addEventListener('load', () => { try { canvas.focus({ preventScroll: true }); } catch (_) {} });
 
 // ---------------------------------------------------------------- 入力
 const keys = {}, pressed = {};
@@ -1093,7 +1097,8 @@ function drawTitle() {
   ctx.fillText('仲間の頭に乗れる。光を向けている間だけ「アレ」は止まる。誰か一人でも欠けたら、全員でやり直し。', W / 2, 400);
   if (Math.floor(G.titleT * 1.5) % 2 === 0) {
     ctx.fillStyle = '#efe6d8'; ctx.font = `bold 18px ${FONT_UI}`;
-    ctx.fillText(Touch.on ? '画面をタップではじめる' : 'Enter / Space ではじめる', W / 2, 460);
+    const focused = document.hasFocus ? document.hasFocus() : true;
+    ctx.fillText(Touch.on ? '画面をタップではじめる' : (focused ? 'Enter / Space ではじめる' : '画面をクリックしてから Enter / Space ではじめる'), W / 2, 460);
   }
   ctx.fillStyle = 'rgba(120,110,130,0.6)'; ctx.font = `11px ${FONT_UI}`;
   ctx.fillText(Touch.on ? '◀ ▶ をタップで人数変更　音量にご注意ください' : '← → で人数変更　M で音の切替　音量にご注意ください', W / 2, 500);
