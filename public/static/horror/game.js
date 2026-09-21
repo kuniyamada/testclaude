@@ -9,7 +9,7 @@
 const T = 32, COLS = 30, ROWS = 17, W = COLS * T, H = ROWS * T;
 const EPS = 0.01; // 端のピクセルを含めるための微小値（座標が小数でも正しく判定する）
 const STEP = 1 / 60;
-const GRAVITY = 0.6, JUMP_V = -10.2, MAX_SPEED = 3.4, ACCEL = 0.55, FRICTION = 0.72, MAX_FALL = 12;
+const GRAVITY = 0.6, JUMP_V = -10.2, MAX_SPEED = 3.4, ACCEL = 0.55, FRICTION = 0.72, AIR_FRICTION = 0.985, MAX_FALL = 12;
 const PW = 28, PH = 28;
 const COLORS = ['#e25d5d', '#5d8fe2', '#6fcf7c', '#e6c65d'];
 const CONTROLS = [
@@ -302,17 +302,23 @@ const Touch = (() => {
   }
   function wirePad(pad, i) {
     const btns = Array.from(pad.querySelectorAll('.btn'));
-    const active = new Map(); // pointerId -> action
+    const active = new Map(); // pointerId -> { a: 押している操作, dir: ▲へ滑らせた時に保持する方向 }
     const hit = (x, y) => {
       for (const b of btns) { const r = b.getBoundingClientRect(); if (x >= r.left - 6 && x <= r.right + 6 && y >= r.top - 6 && y <= r.bottom + 6) return b.dataset.a; }
       return null;
     };
     const apply = () => {
       const st = state[i]; st.left = st.right = st.jump = false;
-      for (const a of active.values()) if (a) st[a] = true;
+      for (const v of active.values()) { if (v.a) st[v.a] = true; if (v.dir) st[v.dir] = true; }
       for (const b of btns) b.classList.toggle('on', st[b.dataset.a]);
     };
-    const set = (e, a) => { active.set(e.pointerId, a); apply(); };
+    // 親指1本で斜めに飛べるように、◀/▶ から ▲ へ指を滑らせたらその方向を押し続けたことにする
+    const set = (e, a) => {
+      const prev = active.get(e.pointerId) || { a: null, dir: null };
+      let dir = null;
+      if (a === 'jump') dir = (prev.a === 'left' || prev.a === 'right') ? prev.a : prev.dir;
+      active.set(e.pointerId, { a, dir }); apply();
+    };
     pad.addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.unlock(); try { pad.setPointerCapture(e.pointerId); } catch (_) {} set(e, hit(e.clientX, e.clientY)); });
     pad.addEventListener('pointermove', (e) => { if (active.has(e.pointerId)) set(e, hit(e.clientX, e.clientY)); });
     const end = (e) => { if (active.has(e.pointerId)) { active.delete(e.pointerId); apply(); } };
@@ -628,7 +634,7 @@ function updatePlayer(p) {
   const inp = playerInput(p.i);
   const dir = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
   if (dir !== 0) { p.vx += dir * ACCEL; p.facing = dir; p.walk += Math.abs(p.vx) * 0.08; }
-  else p.vx *= FRICTION;
+  else p.vx *= p.wasGrounded ? FRICTION : AIR_FRICTION; // 空中では慣性を保つ（走ってからジャンプすれば斜めに飛べる）
   p.vx = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, p.vx));
   if (Math.abs(p.vx) < 0.05) p.vx = 0;
   moveX(p, p.vx);
@@ -1089,12 +1095,13 @@ function drawTitle() {
   ctx.font = `13px ${FONT_UI}`; ctx.fillStyle = 'rgba(190,180,200,0.85)';
   if (Touch.on) {
     ctx.fillText('画面の左右に出るボタンで操作（1P・3P は左、2P・4P は右）。スマホは横向き推奨', W / 2, 360);
+    ctx.fillText('◀ ▶ を押したまま指を ▲ へ滑らせると、進みながらジャンプできる', W / 2, 380);
   } else for (let i = 0; i < 4; i++) {
     ctx.fillStyle = i < G.numPlayers ? COLORS[i] : 'rgba(120,110,130,0.5)';
     ctx.fillText(`${i + 1}P  ${CONTROLS[i].label}`, W / 2 - 300 + i * 200, 360);
   }
   ctx.fillStyle = 'rgba(190,180,200,0.7)'; ctx.font = `13px ${FONT_UI}`;
-  ctx.fillText('仲間の頭に乗れる。光を向けている間だけ「アレ」は止まる。誰か一人でも欠けたら、全員でやり直し。', W / 2, 400);
+  ctx.fillText('仲間の頭に乗れる。光を向けている間だけ「アレ」は止まる。誰か一人でも欠けたら、全員でやり直し。', W / 2, Touch.on ? 410 : 400);
   if (Math.floor(G.titleT * 1.5) % 2 === 0) {
     ctx.fillStyle = '#efe6d8'; ctx.font = `bold 18px ${FONT_UI}`;
     const focused = document.hasFocus ? document.hasFocus() : true;
