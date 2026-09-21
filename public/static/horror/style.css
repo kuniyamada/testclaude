@@ -98,3 +98,37 @@ body.touch #help { display: none; }
   padding: 6px 12px; border-radius: 6px; background: rgba(20,15,28,0.8); color: #d8d0e0; font-size: 12px; z-index: 20;
 }
 @media (orientation: portrait) { body.touch #rotate-hint { display: block; } }
+
+/* ---------------- ネット協力プレイのロビー ---------------- */
+#lobby {
+  position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center;
+  background: rgba(3,2,6,0.82); padding: 16px; box-sizing: border-box; pointer-events: auto;
+  -webkit-user-select: text; user-select: text; touch-action: manipulation;
+}
+#lobby.hidden { display: none; }
+#lobby .panel {
+  width: 100%; max-width: 420px; max-height: 100%; overflow-y: auto; box-sizing: border-box;
+  padding: 20px 22px; border-radius: 10px; border: 1px solid #2a2333; background: #100c16; color: #d8d0e0;
+  box-shadow: 0 0 40px rgba(0,0,0,0.8);
+}
+#lobby h2 { margin: 0 0 6px; font: 22px "Hiragino Mincho ProN", "Noto Serif JP", "Yu Mincho", serif; color: #e8e0ea; }
+#lobby .sub { margin: 0 0 16px; font-size: 12px; line-height: 1.6; color: #9a93a8; }
+#lobby button {
+  display: block; width: 100%; padding: 12px; margin: 0 0 10px; border-radius: 8px; border: 1px solid #5a3a4a;
+  background: #3a1a26; color: #f0e6ea; font-size: 16px; font-weight: bold; cursor: pointer;
+}
+#lobby button:disabled { opacity: 0.4; cursor: default; }
+#lobby button.ghost { background: transparent; border-color: #2a2333; color: #9a93a8; font-weight: normal; margin-top: 6px; }
+#lobby .join { display: flex; gap: 8px; }
+#lobby .join input {
+  flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a2333; background: #07060a; color: #e8e0ea;
+  font-size: 20px; letter-spacing: 0.2em; text-transform: uppercase; text-align: center;
+}
+#lobby .join button { width: auto; margin: 0; padding: 10px 18px; }
+#lobby .code { font-size: 14px; color: #9a93a8; margin-bottom: 10px; }
+#lobby .code b { display: inline-block; margin-left: 8px; padding: 4px 14px; border-radius: 6px; background: #07060a; color: #ffd27a; font-size: 28px; letter-spacing: 0.25em; }
+#lb-members { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; min-height: 28px; }
+#lb-members .mem { padding: 4px 10px; border-radius: 6px; border: 2px solid var(--pc); color: var(--pc); font-size: 13px; font-weight: bold; }
+#lb-status { font-size: 13px; color: #9a93a8; margin-bottom: 12px; min-height: 18px; }
+#lb-error { color: #e07a7a; font-size: 13px; min-height: 18px; margin-bottom: 6px; }
+#lobby .hidden { display: none; }

@@ -5,6 +5,15 @@
   "compatibility_flags": ["nodejs_compat"],
   "pages_build_output_dir": "./dist",
   
+  // 暗闇の屋敷 ネット協力プレイ: 中継 Worker (worker/relay.ts) の Durable Object を参照する。
+  // 先に `npx wrangler deploy -c worker/wrangler.jsonc` を実行してから Pages をデプロイすること。
+  // 中継を使わない場合はこのブロックを削除してよい（/ws は 503 を返し、ゲームはローカル協力のみになる）。
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "RoomDO", "script_name": "dark-manor-relay" }
+    ]
+  },
+
   // D1 Database - 本番環境
   "d1_databases": [
     {

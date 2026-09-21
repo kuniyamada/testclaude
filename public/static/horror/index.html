@@ -35,6 +35,28 @@
     <div id="touch-pads"></div>
   </div>
   <div id="rotate-hint">横向きにすると見やすくなります</div>
+  <!-- ネット協力プレイのロビー -->
+  <div id="lobby" class="hidden">
+    <div class="panel">
+      <h2>ネットで集まって遊ぶ</h2>
+      <p class="sub">それぞれ自分のスマホや PC から参加します。部屋を作った人がホストになり、ゲームを進行します。</p>
+      <div id="lobby-home">
+        <button type="button" id="lb-create">部屋を作る</button>
+        <div class="join">
+          <input id="lb-code" maxlength="4" placeholder="部屋コード" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text">
+          <button type="button" id="lb-join">入る</button>
+        </div>
+      </div>
+      <div id="lobby-room" class="hidden">
+        <div class="code">部屋コード <b id="lb-roomcode">----</b></div>
+        <div id="lb-members"></div>
+        <div id="lb-status"></div>
+        <button type="button" id="lb-start" class="hidden">はじめる</button>
+      </div>
+      <div id="lb-error"></div>
+      <button type="button" id="lb-back" class="ghost">戻る</button>
+    </div>
+  </div>
   <script src="/static/horror/game.js"></script>
 </body>
 </html>

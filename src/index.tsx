@@ -14,6 +14,8 @@ import adminRoute from './routes/admin';
 
 type Bindings = {
   DB: D1Database;
+  // ネット協力プレイの中継（worker/relay.ts の Durable Object）。未設定でも他の機能は動く
+  ROOMS?: DurableObjectNamespace;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -36,6 +38,18 @@ app.route('/api/admin', adminRoute);
 
 // 協力ホラーゲーム「暗闇の屋敷」（public/static/horror/）
 app.get('/horror', (c) => c.redirect('/static/horror/index.html'));
+
+// ネット協力プレイ: 部屋コードごとの WebSocket を中継 Worker の Durable Object へ渡す
+app.get('/ws/:code', (c) => {
+  const rooms = c.env.ROOMS;
+  if (!rooms) {
+    return c.json({ error: 'relay not configured', hint: 'worker/wrangler.jsonc をデプロイし、wrangler.jsonc の durable_objects バインディングを有効にしてください' }, 503);
+  }
+  const code = c.req.param('code').toUpperCase();
+  if (!/^[A-Z0-9]{3,8}$/.test(code)) return c.json({ error: 'bad room code' }, 400);
+  if (c.req.header('Upgrade')?.toLowerCase() !== 'websocket') return c.json({ error: 'expected websocket' }, 426);
+  return rooms.get(rooms.idFromName(code)).fetch(c.req.raw);
+});
 
 // ヘルスチェック
 app.get('/api/health', (c) => {

@@ -297,10 +297,11 @@ const Touch = (() => {
   try { const m = localStorage.getItem('horror.padMode'); if (m === 'cluster' || m === 'split') mode = m; } catch (_) {}
   const api = { state, get on() { return on; }, get mode() { return mode; }, tap: null, build, show, enable, layout, toggleMode };
 
+  let lastList = [0, 1];
   function toggleMode() {
     mode = mode === 'split' ? 'cluster' : 'split';
     try { localStorage.setItem('horror.padMode', mode); } catch (_) {}
-    built = ''; build(G.numPlayers);
+    built = ''; build(lastList);
   }
 
   function enable() {
@@ -313,26 +314,28 @@ const Touch = (() => {
     if (window.visualViewport) window.visualViewport.addEventListener('resize', layout);
   }
   // 各プレイヤーのボタン群。左右の端・中段に置き、床にある扉や鍵を隠さない
-  function build(n) {
-    const key = mode + n;
+  // list: この端末で操作するプレイヤー番号の配列（同じ端末で遊ぶなら全員、ネット対戦なら自分だけ）
+  function build(list) {
+    lastList = list;
+    const key = mode + list.join(',');
     if (!on || !padsEl || built === key) return;
     built = key;
     padsEl.innerHTML = '';
-    const mk = (i, cls, inner) => {
+    const mk = (i, row, cls, inner) => {
       const pad = document.createElement('div');
-      pad.className = `pad ${cls}`; pad.dataset.p = i;
+      pad.className = `pad ${cls}`; pad.dataset.p = i; pad.dataset.row = row;
       pad.style.setProperty('--pc', COLORS[i]);
-      pad.innerHTML = `<div class="tag">${i + 1}P</div>` + inner;
+      pad.innerHTML = `<div class="tag">${G.online ? 'あなた' : (i + 1) + 'P'}</div>` + inner;
       padsEl.appendChild(pad); wirePad(pad, i); return pad;
     };
-    for (let i = 0; i < n; i++) {
+    list.forEach((i, row) => {
       if (mode === 'split') {
-        mk(i, 'move', '<div class="btn" data-a="left">◀</div><div class="btn" data-a="right">▶</div>');
-        mk(i, 'jumponly', '<div class="btn jump" data-a="jump">▲</div>');
+        mk(i, row, 'move', '<div class="btn" data-a="left">◀</div><div class="btn" data-a="right">▶</div>');
+        mk(i, row, 'jumponly', '<div class="btn jump" data-a="jump">▲</div>');
       } else {
-        mk(i, 'cluster', '<div class="btn jump" data-a="jump">▲</div><div class="btn" data-a="left">◀</div><div class="btn" data-a="right">▶</div>');
+        mk(i, row, 'cluster', '<div class="btn jump" data-a="jump">▲</div><div class="btn" data-a="left">◀</div><div class="btn" data-a="right">▶</div>');
       }
-    }
+    });
     layout();
   }
   // キャンバスの実寸に合わせてボタンを配置する。横向きは画面の左右端、縦向きはキャンバスの下
@@ -344,12 +347,12 @@ const Touch = (() => {
     const pads = Array.from(padsEl.children);
     const place = (el, left, top) => { el.style.left = Math.round(left) + 'px'; el.style.top = Math.round(top) + 'px'; };
     for (const el of pads) {
-      const i = +el.dataset.p;
+      const i = +el.dataset.p, seat = +el.dataset.row;
       const isJump = el.classList.contains('jumponly'), isMove = el.classList.contains('move');
       // 非表示中（display:none）は実寸が 0 になるので CSS と同じ既定値を使う
       const w = el.offsetWidth || (isJump ? 84 : isMove ? 128 : 118), h = el.offsetHeight || (isJump ? 84 : isMove ? 62 : 118);
       if (mode === 'split') {
-        const row = i; // 1P が一番下、2P 以降はその上
+        const row = seat; // この端末の最初の人が一番下、次の人はその上
         if (portrait) {
           const rowTop = r.bottom + 22 + row * 100;
           place(el, isJump ? vw - 12 - w : 12, rowTop + (isJump ? 0 : 11));
@@ -358,7 +361,7 @@ const Touch = (() => {
           place(el, isJump ? vw - 8 - w : 8, bottom - h - row * 96);
         }
       } else {
-        const row = Math.floor(i / 2), right = i % 2 === 1;
+        const row = Math.floor(seat / 2), right = seat % 2 === 1;
         if (portrait) place(el, right ? vw - 12 - w : 12, r.bottom + 22 + row * 130);
         else place(el, right ? vw - 6 - w : 6, Math.min(r.bottom, vh) - 10 - h - row * 128);
       }
@@ -452,7 +455,18 @@ function padInput(i) {
   const b = (n) => !!(gp.buttons[n] && gp.buttons[n].pressed);
   return { left: ax < -0.5 || b(14), right: ax > 0.5 || b(15), jump: b(0) || b(1) || b(2) || b(3) };
 }
+// ネット対戦のとき、この端末の操作（1P と 2P のキー・スペース・ゲームパッド 0・タッチ）をまとめて自分のキャラに使う
+function localInput(me) {
+  const inp = { left: false, right: false, jump: !!keys.Space };
+  for (const c of [CONTROLS[0], CONTROLS[1]]) { inp.left = inp.left || !!keys[c.left]; inp.right = inp.right || !!keys[c.right]; inp.jump = inp.jump || !!keys[c.jump]; }
+  const gp = padInput(0);
+  if (gp) { inp.left = inp.left || gp.left; inp.right = inp.right || gp.right; inp.jump = inp.jump || gp.jump; }
+  const ts = Touch.state[me];
+  if (ts) { inp.left = inp.left || ts.left; inp.right = inp.right || ts.right; inp.jump = inp.jump || ts.jump; }
+  return inp;
+}
 function playerInput(i) {
+  if (G.online) return i === G.online.me ? localInput(i) : Net.inputs[i];
   const c = CONTROLS[i];
   const inp = { left: !!keys[c.left], right: !!keys[c.right], jump: !!keys[c.jump] };
   const gp = padInput(i);
@@ -474,6 +488,8 @@ const G = {
   gatesOpen: false, unlocked: false, time: 0, deaths: 0, msg: null, msgT: 0,
   flash: 0, nextLightning: 0, deathT: 0, deathText: '', clearT: 0, introT: 0, paused: false,
   ghostTimer: 0, heartT: 0, ghostNear: 0, endingT: 0, totalTime: 0, titleT: 0, padLatch: false,
+  // ネット協力プレイ中: { host: 自分がホストか, slot: 部屋での番号, members: 開始時の参加者 slot 一覧, me: 自分のプレイヤー番号 }
+  online: null,
 };
 
 function makePlayer(i, x, y) {
@@ -511,7 +527,7 @@ function loadLevel(i) {
   G.gatesOpen = false; G.unlocked = false; G.time = 0; G.msg = null; G.msgT = 0; G.flash = 0;
   G.nextLightning = 4 + Math.random() * 6; G.ghostTimer = L.ghostDelay || 0; G.introT = 2.6; G.heartT = 0; G.ghostNear = 0;
   G.scene = 'play'; G.paused = false;
-  Touch.build(G.numPlayers);
+  Touch.build(G.online ? [G.online.me] : G.players.map((p) => p.i));
   Sfx.setDrone(0.25 + i * 0.03);
   Sfx.setWhisper(0);
 }
@@ -605,8 +621,232 @@ function inLight(p, x, y) {
   return d < len && Math.abs(dy) < ax * 0.42 + 18;
 }
 
+// ---------------------------------------------------------------- ネット協力プレイ
+// 部屋を作った人（ホスト）がゲームを進め、他の人は入力を送って状態を受け取る。
+// 中継サーバーは worker/relay.ts。既定では同じホストの /ws/<部屋コード> に接続し、
+// ?relay=wss://... で別の中継先を指定できる（端末に記憶される）。
+const Net = (() => {
+  const inputs = [0, 1, 2, 3].map(() => ({ left: false, right: false, jump: false }));
+  const SNAP_HZ = 20;
+  let ws = null, slot = -1, members = [], code = '', creating = false;
+  let lastSent = '', sendAcc = 0, pending = null, rtt = 0, pingAcc = 0, prevScene = '', prevFlash = 0;
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    lobby: $('lobby'), home: $('lobby-home'), room: $('lobby-room'), code: $('lb-code'), roomcode: $('lb-roomcode'),
+    members: $('lb-members'), status: $('lb-status'), start: $('lb-start'), error: $('lb-error'),
+    create: $('lb-create'), join: $('lb-join'), back: $('lb-back'),
+  };
+
+  function relayBase() {
+    let r = '';
+    try {
+      const q = new URLSearchParams(location.search).get('relay');
+      if (q) localStorage.setItem('horror.relay', q);
+      r = localStorage.getItem('horror.relay') || '';
+    } catch (_) {}
+    if (r) return r.replace(/\/$/, '').replace(/^http/, 'ws');
+    return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+  }
+  function genCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; }
+
+  // ---- ロビー表示
+  function open() { if (!el.lobby) return; el.lobby.classList.remove('hidden'); if (slot < 0) showHome(); else showRoom(); }
+  function close() { if (el.lobby) el.lobby.classList.add('hidden'); }
+  function showHome() { el.home.classList.remove('hidden'); el.room.classList.add('hidden'); }
+  function showRoom() { el.home.classList.add('hidden'); el.room.classList.remove('hidden'); el.roomcode.textContent = code; renderMembers(); }
+  function setStatus(t) { el.status.textContent = t; }
+  function setError(t) { el.error.textContent = t || ''; }
+  function renderMembers() {
+    el.members.innerHTML = members.map((m) => `<span class="mem" style="--pc:${COLORS[m]}">${m + 1}P${m === slot ? '（あなた）' : ''}${m === 0 ? ' ホスト' : ''}</span>`).join('');
+    const isHost = slot === 0;
+    el.start.classList.toggle('hidden', !isHost);
+    el.start.disabled = members.length < 2;
+    setStatus(isHost ? (members.length < 2 ? '仲間が入るのを待っています。部屋コードを伝えてください' : 'そろったら「はじめる」を押してください') : 'ホストが始めるのを待っています…');
+  }
+
+  // ---- 接続
+  function connect(c, create) {
+    disconnect(true); code = c; creating = create; setError(''); setStatus('接続中…');
+    let sock;
+    try { sock = new WebSocket(relayBase() + '/ws/' + c); } catch (e) { fail('接続できません: ' + e.message); return; }
+    ws = sock;
+    el.create.disabled = el.join.disabled = true;
+    sock.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch (_) { return; } onMessage(m); };
+    sock.onclose = (ev) => {
+      if (ws !== sock) return;
+      ws = null; el.create.disabled = el.join.disabled = false;
+      if (G.online) endSession(ev.code === 4000 ? 'ホストが部屋を閉じました' : '接続が切れました');
+      else if (slot < 0) fail(ev.code === 4001 ? 'その部屋はもう始まっています' : ev.code === 4002 ? 'その部屋は満員です' : '部屋につながりませんでした。中継サーバーが動いているか確認してください');
+      else { slot = -1; members = []; fail('接続が切れました'); }
+    };
+    sock.onerror = () => {};
+  }
+  function disconnect(reset) {
+    if (ws) { const s = ws; ws = null; try { s.close(); } catch (_) {} }
+    if (reset) { slot = -1; members = []; }
+    el.create.disabled = el.join.disabled = false;
+  }
+  function fail(t) { setError(t); slot = -1; members = []; showHome(); setStatus(''); }
+  function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+
+  function onMessage(m) {
+    switch (m.t) {
+      case 'welcome':
+        slot = m.slot; members = m.members;
+        if (creating && slot !== 0) { disconnect(true); connect(genCode(), true); return; } // コードが既存の部屋と重なった
+        creating = false; showRoom(); break;
+      case 'members':
+        members = m.members; renderMembers();
+        if (G.online && G.online.host) hostMembersChanged();
+        break;
+      case 'host_left': endSession('ホストが部屋を閉じました'); break;
+      case 'err': fail(m.m === 'full' ? 'その部屋は満員です' : 'その部屋はもう始まっています'); break;
+      case 'in': // 参加者の入力（ホストが受ける）
+        if (G.online && G.online.host) { const i = G.online.members.indexOf(m.from); if (i >= 0) inputs[i] = { left: !!m.l, right: !!m.r, jump: !!m.j }; }
+        break;
+      case 'st': // ホストからの状態（参加者が受ける）。最初の 1 回は即適用して参加者モードに入る
+        if (slot > 0) { if (!G.online) apply(m); else pending = m; }
+        break;
+      case 'pong': rtt = performance.now() - m.ts; break;
+      default: break;
+    }
+  }
+
+  // ---- ホスト
+  function hostStart() {
+    if (slot !== 0 || members.length < 2) return;
+    send({ t: 'lock' });
+    const mem = members.slice();
+    G.online = { host: true, slot, members: mem, me: mem.indexOf(slot) };
+    G.numPlayers = mem.length;
+    for (const i of inputs) { i.left = i.right = i.jump = false; }
+    close(); Sfx.unlock(); startGame();
+  }
+  function hostMembersChanged() {
+    const o = G.online;
+    for (let i = 0; i < o.members.length; i++) {
+      if (members.includes(o.members[i])) continue;
+      const p = G.players[i];
+      if (p && !p.gone) { p.gone = true; p.exited = true; p.exitT = 0; showMsg(`${i + 1}P の接続が切れた`, 3); }
+      inputs[i] = { left: false, right: false, jump: false };
+    }
+  }
+  function encode() {
+    return {
+      t: 'st', sc: G.scene, lv: G.levelIndex, n: G.numPlayers, mem: G.online.members, tm: G.time, de: G.deaths, tt: G.totalTime,
+      pz: G.paused ? 1 : 0, it: G.introT, dt: G.deathT, dtx: G.deathText, ct: G.clearT, et: G.endingT, gt: G.ghostTimer,
+      msg: G.msg, mt: G.msgT, fl: +G.flash.toFixed(2), ul: G.unlocked ? 1 : 0, go: G.gatesOpen ? 1 : 0,
+      key: G.key ? (G.key.taken ? 1 : 0) : 0,
+      sw: G.switches.map((x) => (x.pressed ? 1 : 0)), cd: G.candles.map((x) => (x.taken ? 1 : 0)),
+      pl: G.players.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1), p.facing, p.hasKey ? 1 : 0, p.exited ? 1 : 0, p.light, +p.vy.toFixed(1), p.grounded ? 1 : 0]),
+      gh: G.ghosts.map((g) => [+g.x.toFixed(1), +g.y.toFixed(1), g.frozen ? 1 : 0]),
+    };
+  }
+  function hostTick() {
+    if (G.scene === 'title') {
+      // 結末のあとタイトルに戻った: 部屋はそのまま、ロビーへ
+      send({ t: 'st', sc: 'title' });
+      G.online = null; open(); return;
+    }
+    sendAcc += STEP;
+    if (sendAcc >= 1 / SNAP_HZ) { sendAcc = 0; send(encode()); }
+  }
+
+  // ---- 参加者
+  function apply(st) {
+    if (st.sc === 'title') { if (G.online) { G.online = null; G.scene = 'title'; Sfx.setDrone(0.12); Sfx.setWhisper(0); open(); } return; }
+    if (!G.online) {
+      G.online = { host: false, slot, members: st.mem, me: st.mem.indexOf(slot) };
+      G.numPlayers = st.n; close(); Sfx.unlock();
+    }
+    if (G.numPlayers !== st.n) G.numPlayers = st.n;
+    const fresh = !G.level || G.levelIndex !== st.lv || G.players.length !== st.n || G.scene === 'title';
+    if (fresh) { loadLevel(st.lv); prevScene = ''; }
+    const ps = prevScene; prevScene = st.sc;
+    G.scene = st.sc; G.time = st.tm; G.deaths = st.de; G.totalTime = st.tt; G.paused = !!st.pz;
+    G.introT = st.it; G.deathT = st.dt; G.deathText = st.dtx || ''; G.clearT = st.ct; G.endingT = st.et; G.ghostTimer = st.gt;
+    G.msg = st.msg || null; G.msgT = st.mt || 0;
+    if (st.fl > 0.9 && prevFlash < 0.5) setTimeout(() => Sfx.thunder(), 250 + Math.random() * 400);
+    G.flash = st.fl; prevFlash = st.fl;
+    if (st.ul && !G.unlocked) Sfx.unlockDoor();
+    G.unlocked = !!st.ul;
+    if (!!st.go !== G.gatesOpen) { G.gatesOpen = !!st.go; Sfx.switchOn(); }
+    st.sw.forEach((v, i) => { if (G.switches[i]) G.switches[i].pressed = !!v; });
+    st.cd.forEach((v, i) => { if (G.candles[i]) G.candles[i].taken = !!v; });
+    if (G.key) { if (st.key && !G.key.taken) Sfx.key(); G.key.taken = !!st.key; }
+    st.pl.forEach((a, i) => {
+      const p = G.players[i]; if (!p) return;
+      p.tx = a[0]; p.ty = a[1];
+      if (fresh || Math.abs(p.tx - p.x) > 90 || Math.abs(p.ty - p.y) > 90) { p.x = p.tx; p.y = p.ty; }
+      p.facing = a[2]; p.hasKey = !!a[3];
+      const ex = !!a[4]; if (ex && !p.exited) p.exitT = 0; p.exited = ex;
+      p.light = a[5]; p.vy = a[6]; p.grounded = !!a[7];
+    });
+    st.gh.forEach((a, i) => {
+      const g = G.ghosts[i]; if (!g) return;
+      g.tx = a[0]; g.ty = a[1]; if (fresh) { g.x = g.tx; g.y = g.ty; }
+      const fz = !!a[2]; if (fz && !g.frozen) Sfx.freeze(); g.frozen = fz;
+    });
+    if (st.sc === 'dead' && ps !== 'dead') Sfx.death();
+    if (st.sc === 'clear' && ps !== 'clear') Sfx.clear();
+    if (st.sc === 'ending' && ps !== 'ending') { Sfx.setDrone(0.05); Sfx.setWhisper(0); }
+  }
+  function guestUpdate() {
+    if (pending) { const st = pending; pending = null; apply(st); }
+    if (!G.online) return;
+    if (pressed.KeyM) Sfx.toggleMute();
+    // 20Hz の状態を 60fps に補間して滑らかに見せる
+    const k = 0.35;
+    for (const p of G.players) {
+      if (p.tx != null) { p.x += (p.tx - p.x) * k; p.y += (p.ty - p.y) * k; }
+      if (p.exited) p.exitT += STEP;
+      p.blink -= STEP; if (p.blink < -0.15) p.blink = 2 + Math.random() * 4;
+    }
+    for (const g of G.ghosts) { if (g.tx != null) { g.x += (g.tx - g.x) * k; g.y += (g.ty - g.y) * k; } g.t += STEP; }
+    if (G.key) G.key.t += STEP;
+    // 心音は自分のキャラと亡霊の距離で鳴らす
+    const me = G.players[G.online.me];
+    let nearest = 1e9;
+    if (me && !me.exited) for (const g of G.ghosts) { g.dist = dist(g, center(me)); nearest = Math.min(nearest, g.dist); }
+    proximityAudio(nearest);
+    // 入力は変化したときだけ送る
+    const inp = localInput(G.online.me);
+    const sig = (inp.left ? 1 : 0) + '' + (inp.right ? 1 : 0) + (inp.jump ? 1 : 0);
+    if (sig !== lastSent) { lastSent = sig; send({ t: 'in', l: inp.left ? 1 : 0, r: inp.right ? 1 : 0, j: inp.jump ? 1 : 0 }); }
+    pingAcc += STEP; if (pingAcc > 2) { pingAcc = 0; send({ t: 'ping', ts: performance.now() }); }
+  }
+
+  function endSession(msg) {
+    G.online = null; G.scene = 'title'; Sfx.setDrone(0.12); Sfx.setWhisper(0);
+    disconnect(true); open(); setError(msg);
+  }
+  function leave() { disconnect(true); close(); setError(''); }
+
+  // ---- ロビーのボタン
+  if (el.lobby) {
+    el.create.addEventListener('click', () => { Sfx.unlock(); connect(genCode(), true); });
+    const join = () => { const c = (el.code.value || '').trim().toUpperCase(); if (c.length < 3) { setError('部屋コードを入力してください'); return; } Sfx.unlock(); connect(c, false); };
+    el.join.addEventListener('click', join);
+    el.code.addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); e.stopPropagation(); });
+    el.code.addEventListener('keyup', (e) => e.stopPropagation());
+    el.start.addEventListener('click', hostStart);
+    el.back.addEventListener('click', leave);
+  }
+
+  return {
+    inputs, open, close, leave, hostTick, guestUpdate, endSession, connect, hostStart,
+    get lobbyOpen() { return !!el.lobby && !el.lobby.classList.contains('hidden'); },
+    get slot() { return slot; }, get members() { return members; }, get code() { return code; }, get rtt() { return rtt; },
+  };
+})();
+
 // ---------------------------------------------------------------- 更新
 function update() {
+  if (G.online && !G.online.host) { G.titleT += STEP; Touch.tap = null; Net.guestUpdate(); return; }
+  simulate();
+  if (G.online && G.online.host) Net.hostTick();
+}
+function simulate() {
   G.titleT += STEP;
   const tap = Touch.tap; Touch.tap = null;
   if (G.scene === 'title') return updateTitle(tap);
@@ -748,7 +988,10 @@ function updateGhosts(active) {
       if (dist(g, center(target)) < 21) return die('捕まった……');
     }
   }
-  // 心音・囁き
+  proximityAudio(nearest);
+}
+// 心音・囁き・画面の脈動。nearest は最も近い亡霊までの距離
+function proximityAudio(nearest) {
   if (G.ghosts.length && G.ghostTimer <= 0 && nearest < 340) {
     const k = 1 - nearest / 340;
     G.ghostNear = k;
@@ -765,6 +1008,8 @@ function die(text) {
 }
 
 function updateTitle(tap) {
+  if (Net.lobbyOpen) { if (pressed.Escape) Net.leave(); return; }
+  if (pressed.KeyN || (tap && tap.y > 176 && tap.y < 218)) { Sfx.unlock(); Net.open(); return; }
   let dec = pressed.ArrowLeft || pressed.KeyA || pressed.Digit2, inc = pressed.ArrowRight || pressed.KeyD || pressed.Digit3 || pressed.Digit4;
   let start = pressed.Enter || pressed.Space || pressed.KeyW || pressed.ArrowUp || anyPadPressedLatched(0);
   if (tap) {
@@ -937,7 +1182,8 @@ function drawPlayer(p) {
   // 名前
   ctx.globalAlpha = alpha * 0.8;
   ctx.fillStyle = p.color; ctx.font = `bold 10px ${FONT_UI}`; ctx.textAlign = 'center';
-  ctx.fillText(`${p.i + 1}P`, cx, p.y - (p.hasKey ? 22 : 6));
+  const mine = G.online && p.i === G.online.me;
+  ctx.fillText(mine ? '▼ あなた' : `${p.i + 1}P`, cx, p.y - (p.hasKey ? 22 : 6));
   ctx.globalAlpha = 1;
   if (p.hasKey) drawKey(cx, p.y - 12 + Math.sin(G.time * 4) * 2, 0.9);
 }
@@ -1057,6 +1303,10 @@ function drawHUD() {
   ctx.fillText(G.level.name, 14, 22);
   ctx.textAlign = 'right';
   ctx.fillText(`${G.numPlayers}人　死亡 ${G.deaths}${Sfx.isMuted() ? '　🔇' : ''}`, W - 14, 22);
+  if (G.online) {
+    ctx.textAlign = 'left'; ctx.fillStyle = COLORS[G.online.me];
+    ctx.fillText(`あなたは ${G.online.me + 1}P${G.online.host ? '（ホスト）' : ''}${Net.rtt ? `　${Math.round(Net.rtt)}ms` : ''}`, 14, 40);
+  }
   const remaining = G.players.filter((p) => !p.exited).length;
   if (G.unlocked && remaining) { ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,120,120,0.9)'; ctx.fillText(`扉へ　あと ${remaining} 人`, W / 2, H - 11); }
   if (G.msg) {
@@ -1151,9 +1401,17 @@ function drawTitle() {
   ctx.fillText('暗闇の屋敷', W / 2, 130);
   ctx.fillStyle = 'rgba(150,140,165,0.8)'; ctx.font = `16px ${FONT_UI}`;
   ctx.fillText('— 協力ホラーアクション —　鍵を見つけ、全員で扉から出ろ', W / 2, 165);
+  // ネット協力プレイへの入口
+  ctx.fillStyle = 'rgba(58,26,38,0.85)'; rrect(W / 2 - 200, 180, 400, 34, 8); ctx.fill();
+  ctx.strokeStyle = 'rgba(160,90,110,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#f0e6ea'; ctx.font = `bold 15px ${FONT_UI}`;
+  ctx.fillText(Touch.on ? 'ここをタップ: ネットで集まって遊ぶ（別々の端末から参加）' : 'N キー / クリック: ネットで集まって遊ぶ（別々の端末から参加）', W / 2, 203);
+  ctx.font = `13px ${FONT_UI}`;
   // 人数選択
+  ctx.fillStyle = 'rgba(150,140,165,0.7)'; ctx.font = `12px ${FONT_UI}`;
+  ctx.fillText('— または、ひとつの端末で —', W / 2, 232);
   ctx.fillStyle = '#e8e0ea'; ctx.font = `bold 24px ${FONT_UI}`;
-  ctx.fillText(`◀　プレイ人数　${G.numPlayers} 人　▶`, W / 2, 250);
+  ctx.fillText(`◀　プレイ人数　${G.numPlayers} 人　▶`, W / 2, 262);
   for (let i = 0; i < 4; i++) {
     const px = W / 2 - 3 * 26 + i * 52;
     const p = makePlayer(i, px - PW / 2, 300); p.facing = i % 2 ? -1 : 1; p.blink = 1;
@@ -1224,5 +1482,5 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // デバッグ用フック（ブラウザのコンソールから状態を確認できる）
-window.__horror = { G, LEVELS, loadLevel, startGame };
+window.__horror = { G, LEVELS, loadLevel, startGame, Net, Touch };
 })();
