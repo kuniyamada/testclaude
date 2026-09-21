@@ -34,6 +34,9 @@ app.route('/api/monthly', monthlyRoute);
 app.route('/api/garden', gardenRoute);
 app.route('/api/admin', adminRoute);
 
+// 協力ホラーゲーム「暗闇の屋敷」（public/static/horror/）
+app.get('/horror', (c) => c.redirect('/static/horror/index.html'));
+
 // ヘルスチェック
 app.get('/api/health', (c) => {
   return c.json({ status: 'ok', app: 'Thanks Garden' });

@@ -1,0 +1,50 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #050408;
+  color: #9a93a8;
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+  overflow: hidden;
+  height: 100%;
+}
+#wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 8px;
+}
+#game {
+  display: block;
+  background: #050408;
+  image-rendering: auto;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), 0 0 2px #1a1522;
+  outline: none;
+}
+#help {
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: center;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+#help .row { white-space: nowrap; }
+#help .dim { opacity: 0.55; }
+#help .p {
+  display: inline-block;
+  min-width: 24px;
+  padding: 0 5px;
+  margin: 0 4px 0 14px;
+  border-radius: 3px;
+  color: #000;
+  font-weight: bold;
+}
+#help .p1 { background: #e25d5d; }
+#help .p2 { background: #5d8fe2; }
+#help .p3 { background: #6fcf7c; }
+#help .p4 { background: #e6c65d; }
+@media (max-width: 900px) {
+  #help { font-size: 10px; }
+  #help .row { white-space: normal; }
+}

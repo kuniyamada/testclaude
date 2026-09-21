@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050408">
+  <meta name="description" content="暗闇の屋敷 - ピコパーク風 協力ホラーアクション。2〜4人で鍵を探し、全員で屋敷から脱出せよ。">
+  <title>暗闇の屋敷 - 協力ホラーアクション</title>
+  <link rel="stylesheet" href="/static/horror/style.css">
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="960" height="544" aria-label="暗闇の屋敷 ゲーム画面"></canvas>
+    <div id="help">
+      <div class="row">
+        <span class="p p1">1P</span> A / D 移動　W ジャンプ
+        <span class="p p2">2P</span> ← / → 移動　↑ ジャンプ
+        <span class="p p3">3P</span> J / L 移動　I ジャンプ
+        <span class="p p4">4P</span> F / H 移動　T ジャンプ
+      </div>
+      <div class="row dim">ゲームパッド対応（Dパッド / 左スティック移動、Aボタンでジャンプ）　R: やり直し　Esc: ポーズ　M: 音の切替</div>
+    </div>
+  </div>
+  <script src="/static/horror/game.js"></script>
+</body>
+</html>
