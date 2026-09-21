@@ -2,7 +2,10 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#050408">
   <meta name="description" content="暗闇の屋敷 - ピコパーク風 協力ホラーアクション。2〜4人で鍵を探し、全員で屋敷から脱出せよ。">
   <title>暗闇の屋敷 - 協力ホラーアクション</title>
@@ -21,6 +24,17 @@
       <div class="row dim">ゲームパッド対応（Dパッド / 左スティック移動、Aボタンでジャンプ）　R: やり直し　Esc: ポーズ　M: 音の切替</div>
     </div>
   </div>
+  <!-- タッチ操作（スマホ・タブレット）。中身は game.js が人数に応じて生成する -->
+  <div id="touch" class="hidden" aria-label="タッチ操作">
+    <div id="touch-top">
+      <button type="button" id="tb-pause" aria-label="一時停止">Ⅱ</button>
+      <button type="button" id="tb-restart" aria-label="やり直し">↻</button>
+      <button type="button" id="tb-mute" aria-label="音の切替">♪</button>
+      <button type="button" id="tb-full" aria-label="全画面">⛶</button>
+    </div>
+    <div id="touch-pads"></div>
+  </div>
+  <div id="rotate-hint">横向きにすると見やすくなります</div>
   <script src="/static/horror/game.js"></script>
 </body>
 </html>

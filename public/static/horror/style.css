@@ -13,8 +13,18 @@ html, body {
   align-items: center;
   justify-content: center;
   height: 100vh;
+  height: 100dvh;
   gap: 8px;
 }
+body.touch {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+body.touch #wrap { gap: 0; }
+body.touch #help { display: none; }
 #game {
   display: block;
   background: #050408;
@@ -47,4 +57,54 @@ html, body {
 @media (max-width: 900px) {
   #help { font-size: 10px; }
   #help .row { white-space: normal; }
+}
+
+/* ---------------- タッチ操作 ---------------- */
+#touch { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+#touch.hidden { display: none; }
+#touch-top {
+  position: absolute; top: max(4px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  display: flex; gap: 8px; pointer-events: auto;
+}
+#touch-top button {
+  width: 38px; height: 30px; border-radius: 6px; border: 1px solid rgba(200,190,210,0.35);
+  background: rgba(20,15,28,0.55); color: #d8d0e0; font-size: 15px; line-height: 1; padding: 0;
+  touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+#touch-top button:active, #touch-top button.on { background: rgba(120,60,80,0.7); }
+.pad {
+  position: absolute; width: 118px; height: 118px; pointer-events: auto; touch-action: none;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; padding: 6px; box-sizing: border-box;
+}
+.pad.left { left: max(6px, env(safe-area-inset-left)); }
+.pad.right { right: max(6px, env(safe-area-inset-right)); }
+.pad.row0 { bottom: 12%; }
+.pad.row1 { bottom: calc(12% + 126px); }
+.pad .btn {
+  border-radius: 12px; border: 2px solid var(--pc, #999);
+  background: rgba(20,15,28,0.35); color: var(--pc, #ccc);
+  display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+.pad .btn.jump { grid-column: 1 / span 2; }
+.pad .btn.on { background: var(--pc, #999); color: #000; }
+.pad .tag {
+  position: absolute; top: -14px; left: 8px; font-size: 11px; font-weight: bold; color: var(--pc, #ccc);
+  text-shadow: 0 0 4px #000;
+}
+#rotate-hint {
+  display: none; position: fixed; top: 42px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  padding: 6px 12px; border-radius: 6px; background: rgba(20,15,28,0.8); color: #d8d0e0; font-size: 12px; z-index: 20;
+}
+/* 縦向き: 画面を上に寄せ、ボタンは下の空き領域に置く */
+@media (orientation: portrait) {
+  body.touch #rotate-hint { display: block; }
+  body.touch #wrap { justify-content: flex-start; padding-top: 70px; box-sizing: border-box; }
+  body.touch .pad.row0 { bottom: 5%; }
+  body.touch .pad.row1 { bottom: calc(5% + 126px); }
+}
+@media (max-height: 420px) {
+  .pad { width: 104px; height: 104px; }
+  .pad.row1 { bottom: calc(12% + 110px); }
+  .pad .btn { font-size: 18px; }
 }

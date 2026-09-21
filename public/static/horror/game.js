@@ -184,13 +184,20 @@ const dctx = darkCv.getContext('2d');
 
 function fit() {
   const help = document.getElementById('help');
-  const hh = help ? help.offsetHeight + 16 : 0;
+  const hh = (help && !document.body.classList.contains('touch')) ? help.offsetHeight + 16 : 0;
   const s = Math.min(window.innerWidth / W, (window.innerHeight - hh) / H);
   canvas.style.width = Math.floor(W * s) + 'px';
   canvas.style.height = Math.floor(H * s) + 'px';
 }
 window.addEventListener('resize', fit);
-fit();
+window.addEventListener('orientationchange', () => setTimeout(fit, 100));
+if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
+
+// 画面上の座標 → ゲーム座標
+function canvasPoint(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+}
 
 // ---------------------------------------------------------------- 音
 const Sfx = (() => {
@@ -264,6 +271,90 @@ const Sfx = (() => {
   };
 })();
 
+// ---------------------------------------------------------------- タッチ操作（スマホ・タブレット）
+const Touch = (() => {
+  const state = [0, 1, 2, 3].map(() => ({ left: false, right: false, jump: false }));
+  const root = document.getElementById('touch');
+  const padsEl = document.getElementById('touch-pads');
+  let on = false, built = 0;
+  const api = { state, get on() { return on; }, tap: null, build, show, enable };
+
+  function enable() {
+    if (on || !root) return;
+    on = true;
+    document.body.classList.add('touch');
+    fit();
+    wireTop();
+  }
+  // 各プレイヤーのボタン群。左右の端・中段に置き、床にある扉や鍵を隠さない
+  function build(n) {
+    if (!on || !padsEl || built === n) return;
+    built = n;
+    padsEl.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const pad = document.createElement('div');
+      pad.className = `pad ${i % 2 ? 'right' : 'left'} row${Math.floor(i / 2)}`;
+      pad.style.setProperty('--pc', COLORS[i]);
+      pad.innerHTML = `<div class="tag">${i + 1}P</div><div class="btn jump" data-a="jump">▲</div><div class="btn" data-a="left">◀</div><div class="btn" data-a="right">▶</div>`;
+      padsEl.appendChild(pad);
+      wirePad(pad, i);
+    }
+  }
+  function wirePad(pad, i) {
+    const btns = Array.from(pad.querySelectorAll('.btn'));
+    const active = new Map(); // pointerId -> action
+    const hit = (x, y) => {
+      for (const b of btns) { const r = b.getBoundingClientRect(); if (x >= r.left - 6 && x <= r.right + 6 && y >= r.top - 6 && y <= r.bottom + 6) return b.dataset.a; }
+      return null;
+    };
+    const apply = () => {
+      const st = state[i]; st.left = st.right = st.jump = false;
+      for (const a of active.values()) if (a) st[a] = true;
+      for (const b of btns) b.classList.toggle('on', st[b.dataset.a]);
+    };
+    const set = (e, a) => { active.set(e.pointerId, a); apply(); };
+    pad.addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.unlock(); try { pad.setPointerCapture(e.pointerId); } catch (_) {} set(e, hit(e.clientX, e.clientY)); });
+    pad.addEventListener('pointermove', (e) => { if (active.has(e.pointerId)) set(e, hit(e.clientX, e.clientY)); });
+    const end = (e) => { if (active.has(e.pointerId)) { active.delete(e.pointerId); apply(); } };
+    pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end); pad.addEventListener('lostpointercapture', end);
+    pad.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  function wireTop() {
+    const q = (id) => document.getElementById(id);
+    const press = (el, fn) => { if (!el) return; el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); Sfx.unlock(); fn(); }); el.addEventListener('contextmenu', (e) => e.preventDefault()); };
+    press(q('tb-pause'), () => { if (G.scene === 'play') G.paused = !G.paused; });
+    press(q('tb-restart'), () => { if (G.scene === 'play') { G.deaths++; loadLevel(G.levelIndex); } });
+    press(q('tb-mute'), () => { const m = Sfx.toggleMute(); q('tb-mute').textContent = m ? '×' : '♪'; });
+    press(q('tb-full'), () => {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+      if (req) Promise.resolve(req.call(el)).then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (_) {} }).catch(() => {});
+    });
+  }
+  function show(visible) {
+    if (!root) return;
+    root.classList.toggle('hidden', !on || !visible);
+    const pb = document.getElementById('tb-pause');
+    if (pb) pb.textContent = G.paused ? '▶' : 'Ⅱ';
+  }
+  // 荒いポインタ（指）が主な端末では最初から表示。マウス端末でも実際に触れられたら切り替える
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) enable();
+  window.addEventListener('touchstart', () => enable(), { once: true, passive: true });
+  return api;
+})();
+
+fit();
+
+// 画面タップ（タイトルの人数変更・開始、クリア画面の進行）
+canvas.addEventListener('pointerdown', (e) => {
+  Sfx.unlock();
+  if (e.pointerType === 'mouse' && !Touch.on) return;
+  e.preventDefault();
+  Touch.tap = canvasPoint(e);
+});
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
 // ---------------------------------------------------------------- 入力
 const keys = {}, pressed = {};
 window.addEventListener('keydown', (e) => {
@@ -274,7 +365,6 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-canvas.addEventListener('pointerdown', () => Sfx.unlock());
 
 function padInput(i) {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -289,6 +379,8 @@ function playerInput(i) {
   const inp = { left: !!keys[c.left], right: !!keys[c.right], jump: !!keys[c.jump] };
   const gp = padInput(i);
   if (gp) { inp.left = inp.left || gp.left; inp.right = inp.right || gp.right; inp.jump = inp.jump || gp.jump; }
+  const ts = Touch.state[i];
+  if (ts) { inp.left = inp.left || ts.left; inp.right = inp.right || ts.right; inp.jump = inp.jump || ts.jump; }
   return inp;
 }
 function anyPadPressed(n) {
@@ -341,6 +433,7 @@ function loadLevel(i) {
   G.gatesOpen = false; G.unlocked = false; G.time = 0; G.msg = null; G.msgT = 0; G.flash = 0;
   G.nextLightning = 4 + Math.random() * 6; G.ghostTimer = L.ghostDelay || 0; G.introT = 2.6; G.heartT = 0; G.ghostNear = 0;
   G.scene = 'play'; G.paused = false;
+  Touch.build(G.numPlayers);
   Sfx.setDrone(0.25 + i * 0.03);
   Sfx.setWhisper(0);
 }
@@ -437,8 +530,9 @@ function inLight(p, x, y) {
 // ---------------------------------------------------------------- 更新
 function update() {
   G.titleT += STEP;
-  if (G.scene === 'title') return updateTitle();
-  if (G.scene === 'ending') { G.endingT += STEP; if (G.endingT > 2 && (pressed.Enter || pressed.Space || anyPadPressed(9))) { G.scene = 'title'; Sfx.setDrone(0.12); Sfx.setWhisper(0); } return; }
+  const tap = Touch.tap; Touch.tap = null;
+  if (G.scene === 'title') return updateTitle(tap);
+  if (G.scene === 'ending') { G.endingT += STEP; if (G.endingT > 2 && (pressed.Enter || pressed.Space || anyPadPressed(9) || tap)) { G.scene = 'title'; Sfx.setDrone(0.12); Sfx.setWhisper(0); } return; }
   if (pressed.KeyM) { Sfx.toggleMute(); }
   if (G.scene === 'dead') {
     G.deathT -= STEP;
@@ -447,7 +541,7 @@ function update() {
   }
   if (G.scene === 'clear') {
     G.clearT += STEP;
-    if (G.clearT > 1.2 && (pressed.Enter || pressed.Space || anyPadPressed(0) || G.clearT > 4)) {
+    if (G.clearT > 1.2 && (pressed.Enter || pressed.Space || anyPadPressed(0) || tap || G.clearT > 4)) {
       if (G.levelIndex + 1 < LEVELS.length) loadLevel(G.levelIndex + 1);
       else { G.scene = 'ending'; G.endingT = 0; Sfx.setDrone(0.05); Sfx.setWhisper(0); }
     }
@@ -456,7 +550,7 @@ function update() {
   // play
   if (pressed.Escape || pressed.KeyP || anyPadPressedLatched(9)) G.paused = !G.paused;
   if (pressed.KeyR) { G.deaths++; loadLevel(G.levelIndex); return; }
-  if (G.paused) return;
+  if (G.paused) { if (tap) G.paused = false; return; }
 
   G.time += STEP; G.totalTime += STEP;
   if (G.introT > 0) G.introT -= STEP;
@@ -592,11 +686,18 @@ function die(text) {
   Sfx.death(); Sfx.setWhisper(0);
 }
 
-function updateTitle() {
-  if (pressed.ArrowLeft || pressed.KeyA || pressed.Digit2) G.numPlayers = pressed.Digit2 ? 2 : Math.max(2, G.numPlayers - 1);
-  if (pressed.ArrowRight || pressed.KeyD || pressed.Digit3 || pressed.Digit4) G.numPlayers = pressed.Digit3 ? 3 : pressed.Digit4 ? 4 : Math.min(4, G.numPlayers + 1);
+function updateTitle(tap) {
+  let dec = pressed.ArrowLeft || pressed.KeyA || pressed.Digit2, inc = pressed.ArrowRight || pressed.KeyD || pressed.Digit3 || pressed.Digit4;
+  let start = pressed.Enter || pressed.Space || pressed.KeyW || pressed.ArrowUp || anyPadPressedLatched(0);
+  if (tap) {
+    // 「◀ プレイ人数 ▶」の行をタップで人数変更。それ以外の場所をタップで開始
+    if (tap.y > 200 && tap.y < 340) { if (tap.x < W / 2 - 40) dec = true; else if (tap.x > W / 2 + 40) inc = true; }
+    else if (tap.y >= 340) start = true;
+  }
+  if (dec) G.numPlayers = pressed.Digit2 ? 2 : Math.max(2, G.numPlayers - 1);
+  if (inc) G.numPlayers = pressed.Digit3 ? 3 : pressed.Digit4 ? 4 : Math.min(4, G.numPlayers + 1);
   if (pressed.KeyM) Sfx.toggleMute();
-  if (pressed.Enter || pressed.Space || pressed.KeyW || pressed.ArrowUp || anyPadPressedLatched(0)) { Sfx.unlock(); startGame(); }
+  if (start) { Sfx.unlock(); startGame(); }
 }
 
 // ---------------------------------------------------------------- 描画
@@ -878,7 +979,7 @@ function drawHUD() {
   ctx.textAlign = 'right';
   ctx.fillText(`${G.numPlayers}人　死亡 ${G.deaths}${Sfx.isMuted() ? '　🔇' : ''}`, W - 14, 22);
   const remaining = G.players.filter((p) => !p.exited).length;
-  if (G.unlocked && remaining) { ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,120,120,0.9)'; ctx.fillText(`扉へ　あと ${remaining} 人`, W / 2, 22); }
+  if (G.unlocked && remaining) { ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,120,120,0.9)'; ctx.fillText(`扉へ　あと ${remaining} 人`, W / 2, H - 11); }
   if (G.msg) {
     ctx.textAlign = 'center'; ctx.font = `bold 18px ${FONT_UI}`;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W / 2 - 240, 38, 480, 34);
@@ -898,7 +999,7 @@ function drawHUD() {
     ctx.fillStyle = '#e8e0ea'; ctx.font = `28px ${FONT_TITLE}`; ctx.textAlign = 'center';
     ctx.fillText('— 一時停止 —', W / 2, H / 2);
     ctx.font = `14px ${FONT_UI}`; ctx.fillStyle = 'rgba(190,180,200,0.8)';
-    ctx.fillText('Esc / P で再開　R でやり直し', W / 2, H / 2 + 36);
+    ctx.fillText(Touch.on ? '画面をタップで再開' : 'Esc / P で再開　R でやり直し', W / 2, H / 2 + 36);
   }
 }
 
@@ -926,7 +1027,7 @@ function drawClear() {
   ctx.fillText(G.levelIndex + 1 < LEVELS.length ? '全員、生き延びた' : '屋敷から脱出した', W / 2, H / 2 - 10);
   if (G.clearT > 1.2) {
     ctx.fillStyle = 'rgba(190,180,200,0.85)'; ctx.font = `15px ${FONT_UI}`;
-    ctx.fillText(G.levelIndex + 1 < LEVELS.length ? 'Enter で次の夜へ' : 'Enter で結末へ', W / 2, H / 2 + 34);
+    ctx.fillText((Touch.on ? 'タップ' : 'Enter') + (G.levelIndex + 1 < LEVELS.length ? ' で次の夜へ' : ' で結末へ'), W / 2, H / 2 + 34);
   }
 }
 
@@ -944,7 +1045,7 @@ function drawEnding() {
     const px = W / 2 - (G.numPlayers - 1) * 22 + i * 44;
     drawPlayer({ ...makePlayer(i, px - PW / 2, H / 2 + 60), facing: i % 2 ? -1 : 1, blink: 1 });
   }
-  if (G.endingT > 2) { ctx.fillStyle = 'rgba(190,180,200,0.7)'; ctx.font = `14px ${FONT_UI}`; ctx.fillText('Enter でタイトルへ', W / 2, H - 40); }
+  if (G.endingT > 2) { ctx.fillStyle = 'rgba(190,180,200,0.7)'; ctx.font = `14px ${FONT_UI}`; ctx.fillText((Touch.on ? 'タップ' : 'Enter') + ' でタイトルへ', W / 2, H - 40); }
 }
 
 function drawTitle() {
@@ -982,7 +1083,9 @@ function drawTitle() {
     ctx.globalAlpha = 1;
   }
   ctx.font = `13px ${FONT_UI}`; ctx.fillStyle = 'rgba(190,180,200,0.85)';
-  for (let i = 0; i < 4; i++) {
+  if (Touch.on) {
+    ctx.fillText('画面の左右に出るボタンで操作（1P・3P は左、2P・4P は右）。スマホは横向き推奨', W / 2, 360);
+  } else for (let i = 0; i < 4; i++) {
     ctx.fillStyle = i < G.numPlayers ? COLORS[i] : 'rgba(120,110,130,0.5)';
     ctx.fillText(`${i + 1}P  ${CONTROLS[i].label}`, W / 2 - 300 + i * 200, 360);
   }
@@ -990,15 +1093,16 @@ function drawTitle() {
   ctx.fillText('仲間の頭に乗れる。光を向けている間だけ「アレ」は止まる。誰か一人でも欠けたら、全員でやり直し。', W / 2, 400);
   if (Math.floor(G.titleT * 1.5) % 2 === 0) {
     ctx.fillStyle = '#efe6d8'; ctx.font = `bold 18px ${FONT_UI}`;
-    ctx.fillText('Enter / Space ではじめる', W / 2, 460);
+    ctx.fillText(Touch.on ? '画面をタップではじめる' : 'Enter / Space ではじめる', W / 2, 460);
   }
   ctx.fillStyle = 'rgba(120,110,130,0.6)'; ctx.font = `11px ${FONT_UI}`;
-  ctx.fillText('← → で人数変更　M で音の切替　音量にご注意ください', W / 2, 500);
+  ctx.fillText(Touch.on ? '◀ ▶ をタップで人数変更　音量にご注意ください' : '← → で人数変更　M で音の切替　音量にご注意ください', W / 2, 500);
 }
 
 function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
+  Touch.show(G.scene === 'play' || G.scene === 'dead' || G.scene === 'clear');
   if (G.scene === 'title') return drawTitle();
   if (G.scene === 'ending') return drawEnding();
   // シーン
